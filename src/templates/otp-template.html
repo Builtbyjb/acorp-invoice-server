@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OTP Verification Email</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: "DM Sans", sans-serif;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 16px;
+      }
+
+      .email-wrapper {
+        width: 100%;
+        max-width: 560px;
+        border: 1px solid #333;
+        border-radius: 12px;
+      }
+
+      /* Header strip */
+      .email-header {
+        background: #333;
+        border-radius: 12px 12px 0 0;
+        border-bottom: 1px solid #333;
+        padding: 20px 40px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .brand-name {
+        font-family: "DM Sans", sans-serif;
+        font-weight: 500;
+        font-size: 15px;
+        color: #fff;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      /* Main card */
+      .email-body {
+        padding: 52px 48px 44px;
+      }
+
+      .eyebrow {
+        font-size: 11px;
+        font-weight: 500;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        margin-bottom: 20px;
+      }
+
+      .heading {
+        font-family: "Cormorant Garamond", serif;
+        font-weight: 300;
+        font-size: 38px;
+        line-height: 1.15;
+        margin-bottom: 20px;
+      }
+
+      .heading em {
+        font-style: italic;
+        font-weight: 400;
+        /*color: #c9c3bd;*/
+      }
+
+      .subtext {
+        font-size: 14px;
+        line-height: 1.75;
+        color: #7e808f;
+        margin-bottom: 44px;
+        max-width: 420px;
+      }
+
+      .otp-code {
+          font-size: 17px;
+          font-weight: 600;
+          letter-spacing: 0.16em;
+          padding: 4px 8px;
+          text-transform: uppercase;
+          color: #fff;
+          background: #333;
+      }
+
+      /* OTP section */
+      .otp-label {
+        font-size: 11px;
+        font-weight: 500;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: #4a4c5c;
+        margin-bottom: 14px;
+      }
+
+      /* Divider */
+      .divider {
+        height: 1px;
+        background: linear-gradient(
+          to right,
+          transparent,
+          #2a2b34 30%,
+          #2a2b34 70%,
+          transparent
+        );
+        margin-bottom: 32px;
+      }
+
+      /* Security notice */
+      .security-box {
+        padding: 16px 18px;
+        margin-bottom: 40px;
+      }
+
+      .security-box p {
+        font-size: 12.5px;
+        line-height: 1.7;
+        color: #5e6070;
+      }
+
+      .security-box strong {
+        color: #9d9fae;
+        font-weight: 500;
+      }
+
+      /* Footer */
+      .email-footer {
+        padding: 12px 12px;
+      }
+
+      .footer-left p {
+        font-size: 11.5px;
+        color: #3e4050;
+        line-height: 1.7;
+      }
+
+      .footer-links {
+        display: flex;
+        gap: 18px;
+      }
+
+      .footer-links a {
+        font-size: 11.5px;
+        color: #333;
+        text-decoration: underline;
+        white-space: nowrap;
+      }
+
+      @media (max-width: 540px) {
+        .email-body {
+          padding: 36px 24px 32px;
+        }
+        .heading {
+          font-size: 30px;
+        }
+        .email-footer {
+          flex-direction: column;
+          align-items: flex-start;
+          padding: 24px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="email-wrapper">
+      <!-- Header -->
+      <div class="email-header">
+        <span class="brand-name">ACORP&nbsp;Invoice</span>
+      </div>
+
+      <!-- Body -->
+      <div class="email-body">
+        <p class="eyebrow">Security Verification</p>
+
+        <h1 class="heading">Your <em>one-time</em><br />passcode</h1>
+
+        <p class="subtext">
+          We received a sign-in request for your account. Enter the code below
+          to complete verification.
+        </p>
+
+          <p class="otp-label">Verification code: <span class="otp-code">{{OTP_CODE}}</span> </p>
+
+        <div class="divider"></div>
+
+        <div class="security-box">
+          <p>
+            <strong>Didn't request this?</strong> If you didn't attempt to sign
+            in, please ignore this email. Your account is safe — no action is
+            required. Never share this code with anyone, including ACorp
+            support.
+          </p>
+        </div>
+
+      <!-- Footer -->
+      <div class="email-footer">
+        <div class="footer-left">
+          <p>ACorp · 127 broadway Avenue, Toronto, Ontario, Canada</p>
+        </div>
+        <br />
+        <div class="footer-links">
+          <a href="https://invoice.acorp.app/privacy-policy">Privacy</a>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

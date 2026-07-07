@@ -1,44 +1,151 @@
-/**
- * For more details on how to configure Wrangler, refer to:
- * https://developers.cloudflare.com/workers/wrangler/configuration/
- */
 {
-	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "acorp-invoice-server",
-	"main": "src/index.ts",
-	"compatibility_date": "2026-07-07",
-	"assets": {
-		"binding": "ASSETS",
-		"directory": "./public"
-	},
-	"observability": {
-		"enabled": true
-	},
-	"upload_source_maps": true,
-	"compatibility_flags": [
-		"nodejs_compat"
-	]
-	/**
-	 * Smart Placement
-	 * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
-	 */
-	// "placement": {  "mode": "smart" }
-	/**
-	 * Bindings
-	 * Bindings allow your Worker to interact with resources on the Cloudflare Developer Platform, including
-	 * databases, object storage, AI inference, real-time communication and more.
-	 * https://developers.cloudflare.com/workers/runtime-apis/bindings/
-	 */
-	/**
-	 * Environment Variables
-	 * https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
-	 * Note: Use secrets to store sensitive data.
-	 * https://developers.cloudflare.com/workers/configuration/secrets/
-	 */
-	// "vars": {  "MY_VARIABLE": "production_value" }
-	/**
-	 * Service Bindings (communicate between multiple Workers)
-	 * https://developers.cloudflare.com/workers/wrangler/configuration/#service-bindings
-	 */
-	// "services": [  {   "binding": "MY_SERVICE",   "service": "my-service"  } ]
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "server",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-04-17",
+  "env": {
+    // Staging Environment
+    "staging": {
+      "name": "ihod-server-staging",
+      "ratelimits": [
+        {
+          "name": "RATE_LIMITER",
+          "namespace_id": "1001",
+          // 60 requests per minute
+          "simple": {
+            "limit": 60,
+            "period": 60,
+          },
+        },
+      ],
+    },
+    //  Production Environment
+    "production": {
+      "name": "ihod-server-production",
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "acorp-db",
+          "database_id": "f277e299-38d2-4252-aa3a-24b902823674",
+          "migrations_dir": "drizzle/migrations",
+        },
+      ],
+      "r2_buckets": [
+        {
+          "binding": "R2",
+          "bucket_name": "acorp-r2-bucket",
+        },
+      ],
+      "send_email": [
+        {
+          "name": "SEND_EMAIL",
+        },
+      ],
+      "triggers": {
+        "crons": ["* * * * *", "0 0 1 * *"],
+      },
+      "ratelimits": [
+        {
+          "name": "RATE_LIMITER",
+          "namespace_id": "1001",
+          // 60 requests per minute
+          "simple": {
+            "limit": 60,
+            "period": 60,
+          },
+        },
+      ],
+    },
+    // UAT Environment
+    "uat": {
+      "name": "ihod-server-uat",
+    },
+    // Development Environment
+    "dev": {
+      "name": "ihod-server-dev",
+      "vars": {
+        "STRIPE_PUBLISHABLE_KEY": "pk_test_...",
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "dev-db",
+          "database_id": "18f70db9-95a9-492b-a230-722cc95baa9c",
+          "migrations_dir": "drizzle/migrations",
+        },
+      ],
+      "r2_buckets": [
+        {
+          "binding": "R2",
+          "bucket_name": "acorp-r2-bucket",
+        },
+      ],
+      "send_email": [
+        {
+          "name": "SEND_EMAIL",
+        },
+      ],
+      "triggers": {
+        "crons": ["* * * * *", "0 0 1 * *"],
+      },
+      "ratelimits": [
+        {
+          "name": "RATE_LIMITER",
+          "namespace_id": "1001",
+          // 60 requests per minute
+          "simple": {
+            "limit": 60,
+            "period": 60,
+          },
+        },
+      ],
+    },
+  },
+  "dev": {
+    "port": 8585,
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1, // optional. default = 1.
+  },
+  "rules": [
+    {
+      "type": "Text",
+      "globs": ["**/*.html"],
+      "fallthrough": true,
+    },
+  ],
+
+  // "compatibility_flags": [
+  //   "nodejs_compat"
+  // ],
+  // "vars": {
+  //   "MY_VAR": "my-variable"
+  // },
+  // "kv_namespaces": [
+  //   {
+  //     "binding": "MY_KV_NAMESPACE",
+  //     "id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  //   }
+  // ],
+  // "r2_buckets": [
+  //   {
+  //     "binding": "MY_BUCKET",
+  //     "bucket_name": "my-bucket"
+  //   }
+  // ],
+  // "d1_databases": [
+  //   {
+  //     "binding": "DB",
+  //     "database_name": "my-database",
+  //     "database_id": "",
+  //   },
+  // ],
+  // "ai": {
+  //   "binding": "AI"
+  // },
+  // "observability": {
+  //   "enabled": true,
+  //   "head_sampling_rate": 1
+  // }
 }
