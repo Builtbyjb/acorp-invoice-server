@@ -1,15 +1,19 @@
 import { Hono } from "hono";
-import { Bindings, TokenPayload } from "../../../../lib/types";
+import type { ENV, TokenPayload } from "../../../../lib/types";
 import { authMiddleware } from "../../../../middleware/authentication";
-import { drizzle } from "drizzle-orm/d1";
-import { organizations } from "../../../../db/schemas";
+import { NodePgDatabase } from "drizzle-orm/node-postgres";
+import { organizations } from "../../../../db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { handleZodValidate } from "../../../../lib/utils";
-import { generateReferralCode, generateReferralLink, getSubscriptionAmount } from "./referral-service";
+import { generateReferralCode, generateReferralLink, getSubscriptionAmount } from "./service";
 
-const referralRouteV1 = new Hono<{ Bindings: Bindings }>().basePath("/referral");
+const referralRouteV1 = new Hono<{
+    Bindings: ENV;
+    Variables: { db: NodePgDatabase; jwtPayload: TokenPayload };
+}>().basePath("/referral");
+
 referralRouteV1.use("*", authMiddleware());
 
 const ReferralToggleSchema = z.object({
@@ -26,8 +30,8 @@ const PayoutMethodSchema = z.object({
 const REWARD = 0.05;
 
 referralRouteV1.get("/details", async (c) => {
-    const db = drizzle(c.env.DB);
-    const jwt = c.get("jwtPayload") as TokenPayload;
+    const db = c.get("db");
+    const jwt = c.get("jwtPayload");
 
     const organization = await db
         .select()
@@ -81,8 +85,8 @@ referralRouteV1.post(
     }),
     async (c) => {
         const { referralEnabled } = c.req.valid("json");
-        const db = drizzle(c.env.DB);
-        const jwt = c.get("jwtPayload") as TokenPayload;
+        const db = c.get("db");
+        const jwt = c.get("jwtPayload");
 
         if (referralEnabled) {
             const organization = await db
@@ -120,8 +124,8 @@ referralRouteV1.post(
     }),
     async (c) => {
         const data = c.req.valid("json");
-        const db = drizzle(c.env.DB);
-        const jwt = c.get("jwtPayload") as TokenPayload;
+        const db = c.get("db");
+        const jwt = c.get("jwtPayload");
 
         await db
             .update(organizations)

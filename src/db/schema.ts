@@ -1,177 +1,118 @@
-import { int, sqliteTable, text } from "drizzle-orm/sqlite-core";
-import { sql } from "drizzle-orm";
-import { InvoiceNumber } from "@shared/lib/types";
+import { boolean, integer, jsonb, numeric, PgInteger, pgTable, timestamp, varchar } from "drizzle-orm/pg-core";
+import type { InvoiceNumber, InvoiceItem } from "@/lib/types";
 
-export const users = sqliteTable("users", {
-    id: int("id").primaryKey({ autoIncrement: true }),
-    email: text("email").notNull().unique(),
-    currentOrgId: int("currency_organization_id")
+export const users = pgTable("users", {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    email: varchar("email").notNull().unique(),
+    currentOrgId: integer("currency_organization_id")
         .references(() => organizations.id)
         .notNull(),
-    firstname: text("firstname"),
-    lastname: text("lastname"),
-    username: text("username").notNull(),
-    avatarURL: text("avatar_url"),
-    deleted: int("deleted", { mode: "boolean" }).notNull().default(false),
-    createdAt: int("created_at", { mode: "timestamp" })
-        .notNull()
-        .default(sql`(unixepoch())`),
-    updatedAt: int("updated_at", { mode: "timestamp" })
-        .notNull()
-        .default(sql`(unixepoch())`)
-        .$onUpdate(() => sql`(unixepoch())`),
+    firstname: varchar("firstname").notNull(),
+    lastname: varchar("lastname").notNull(),
+    username: varchar("username").notNull(),
+    avatarURL: varchar("avatar_url"),
+    deleted: boolean("deleted").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const organizations = sqliteTable("organizations", {
-    id: int("id").primaryKey({ autoIncrement: true }),
-    name: text("name").notNull().unique(),
-    type: text("type").notNull(),
-    address: text("address"),
-    city: text("city"),
-    country: text("country"),
-    website: text("website"),
-    logoURL: text("logo_url"),
-    invoiceNumber: text("invoice_number", { mode: "json" })
-        .$type<InvoiceNumber>()
-        .notNull()
-        .default({ currentNumber: 0, year: 2000 }),
-    referralCode: text("referral_code").unique(),
-    referredBy: int("referred_by").unique(),
-    referralEnabled: int("referral_enabled", { mode: "boolean" }).notNull().default(false),
-    totalEarnings: int("total_earnings").notNull().default(0),
-    paystackCustomerCode: text("paystack_customer_code").unique(),
-    paystackCustomerId: int("paystack_customer_id").unique(),
-    paystackPlanCode: text("paystack_plan_code"),
-    paystackPlanId: int("paystack_plan_id"),
-    paystackSubscriptionStatus: text("paystack_subscription_status", {
-        enum: ["active", "non-renewing", "cancelled", "none"],
-    })
-        .notNull()
-        .default("none"),
-    paymentProvider: text("payment_provider", { enum: ["paystack", "stripe"] })
-        .notNull()
-        .default("paystack"),
-    stripeCustomerId: text("stripe_customer_id").unique(),
-    stripeSubscriptionId: text("stripe_subscription_id"),
-    stripePlanCode: text("stripe_plan_code"),
-    stripePlanId: text("stripe_plan_id"),
-    stripeSubscriptionStatus: text("stripe_subscription_status", {
-        enum: ["active", "non-renewing", "cancelled", "none"],
-    })
-        .notNull()
-        .default("none"),
-    currency: text("currency").notNull().default("NGN"),
-    referralPayoutMethod: text("referral_payout_method"),
-    deleted: int("deleted", { mode: "boolean" }).notNull().default(false),
-    createdAt: int("created_at", { mode: "timestamp" })
-        .notNull()
-        .default(sql`(unixepoch())`),
-    updatedAt: int("updated_at", { mode: "timestamp" })
-        .notNull()
-        .default(sql`(unixepoch())`)
-        .$onUpdate(() => sql`(unixepoch())`),
+export const organizations = pgTable("organizations", {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    name: varchar("name").notNull().unique(),
+    type: varchar("type").notNull(),
+    address: varchar("address"),
+    city: varchar("city"),
+    country: varchar("country"),
+    website: varchar("website"),
+    logoURL: varchar("logo_url"),
+    invoiceNumber: jsonb("invoice_number").$type<InvoiceNumber>().notNull().default({ currentNumber: 0, year: 2000 }),
+    referralCode: varchar("referral_code").unique(),
+    referredBy: integer("referred_by")
+        .references((): PgInteger => organizations.id)
+        .unique(),
+    referralEnabled: boolean("referral_enabled").notNull().default(false),
+    totalEarnings: numeric("total_earnings").$type<number>().notNull().default(0),
+    currency: varchar("currency").notNull().default("NGN"),
+    referralPayoutMethod: varchar("referral_payout_method"),
+    deleted: boolean("deleted").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const members = sqliteTable("members", {
-    id: int("id").primaryKey({ autoIncrement: true }),
-    organizationId: int("organization_id")
+export const members = pgTable("members", {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    organizationId: integer("organization_id")
         .references(() => organizations.id)
         .notNull(),
-    userId: int("user_id")
+    userId: integer("user_id")
         .references(() => users.id)
         .notNull(),
-    roleId: int("role_id")
+    roleId: integer("role_id")
         .references(() => roles.id)
         .notNull(),
-    startDate: int("start_date", { mode: "timestamp" }).default(sql`(unixepoch())`),
-    endDate: int("end_date", { mode: "timestamp" }),
-    deleted: int("deleted", { mode: "boolean" }).notNull().default(false),
-    createdAt: int("created_at", { mode: "timestamp" })
-        .notNull()
-        .default(sql`(unixepoch())`),
-    updatedAt: int("updated_at", { mode: "timestamp" })
-        .notNull()
-        .default(sql`(unixepoch())`)
-        .$onUpdate(() => sql`(unixepoch())`),
+    startDate: timestamp("start_date", { withTimezone: true }).defaultNow(),
+    endDate: timestamp("end_date", { withTimezone: true }),
+    deleted: boolean("deleted").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const roles = sqliteTable("roles", {
-    id: int("id").primaryKey({ autoIncrement: true }),
-    name: text("name").notNull().unique(),
-    permissions: text("permissions").notNull(),
-    createdAt: int("created_at", { mode: "timestamp" })
-        .notNull()
-        .default(sql`(unixepoch())`),
-    updatedAt: int("updated_at", { mode: "timestamp" })
-        .notNull()
-        .default(sql`(unixepoch())`)
-        .$onUpdate(() => sql`(unixepoch())`),
-});
-export const clients = sqliteTable("clients", {
-    id: text("id").primaryKey(),
-    organizationId: int("organization_id").references(() => organizations.id),
-    name: text("name").notNull(),
-    email: text("email"),
-    phone: text("phone"),
-    address: text("address"),
-    city: text("city"),
-    country: text("country"),
-    deleted: int("deleted", { mode: "boolean" }).notNull().default(false),
-    createdAt: int("created_at", { mode: "timestamp" })
-        .notNull()
-        .default(sql`(unixepoch())`),
-    updatedAt: int("updated_at", { mode: "timestamp" })
-        .notNull()
-        .default(sql`(unixepoch())`)
-        .$onUpdate(() => sql`(unixepoch())`),
+export const roles = pgTable("roles", {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    name: varchar("name").notNull().unique(),
+    permissions: varchar("permissions").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const invoices = sqliteTable("invoices", {
-    id: text("id").primaryKey(),
-    invoiceNumber: text("invoice_number").notNull(),
-    clientId: text("client_id")
+export const clients = pgTable("clients", {
+    id: varchar("id").primaryKey(),
+    organizationId: integer("organization_id").references(() => organizations.id),
+    name: varchar("name").notNull(),
+    email: varchar("email"),
+    phone: varchar("phone"),
+    address: varchar("address"),
+    city: varchar("city"),
+    country: varchar("country"),
+    deleted: boolean("deleted").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const invoices = pgTable("invoices", {
+    id: varchar("id").primaryKey(),
+    invoiceNumber: varchar("invoice_number").notNull(),
+    clientId: varchar("client_id")
         .references(() => clients.id)
         .notNull(),
-    issueDate: int("issue_date", { mode: "timestamp" }).notNull(),
-    dueDate: int("due_date", { mode: "timestamp" }).notNull(),
-    status: text("status").notNull(),
-    signature: text("signature"),
-    taxRate: int("tax_rate", { mode: "number" }).notNull().default(0),
-    discount: int("discount", { mode: "number" }).notNull().default(0),
-    items: text("items", { mode: "json" })
-        .$type<InvoiceItem[]>()
-        .notNull()
-        .default(sql`'[]'`),
-    notes: text("notes"),
-    currency: text("currency").notNull(),
-    notified: int("notified", { mode: "boolean" }).notNull().default(false),
-    deleted: int("deleted", { mode: "boolean" }).notNull().default(false),
-    createdAt: int("created_at", { mode: "timestamp" })
-        .notNull()
-        .default(sql`(unixepoch())`),
-    updatedAt: int("updated_at", { mode: "timestamp" })
-        .notNull()
-        .default(sql`(unixepoch())`)
-        .$onUpdate(() => sql`(unixepoch())`),
+    clientName: varchar("client_name").notNull(),
+    issueDate: timestamp("issue_date", { withTimezone: true }).notNull(),
+    dueDate: timestamp("due_date", { withTimezone: true }).notNull(),
+    status: varchar("status").notNull(),
+    signature: varchar("signature"),
+    taxRate: numeric("tax_rate").$type<number>().notNull().default(0),
+    discount: numeric("discount").$type<number>().notNull().default(0),
+    items: jsonb("items").$type<InvoiceItem[]>().notNull().default([]),
+    notes: varchar("notes"),
+    currency: varchar("currency").notNull(),
+    notified: boolean("notified").notNull().default(false),
+    deleted: boolean("deleted").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const payouts = sqliteTable("payouts", {
-    id: int("id").primaryKey({ autoIncrement: true }),
-    organizationId: int("organization_id")
+export const payouts = pgTable("payouts", {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    organizationId: integer("organization_id")
         .references(() => organizations.id)
         .notNull(),
-    amount: int("amount").notNull(),
-    currency: text("currency").notNull(),
-    status: text("status", { enum: ["pending", "processing", "completed", "failed"] })
+    amount: numeric("amount").$type<number>().notNull(),
+    currency: varchar("currency").notNull(),
+    status: varchar("status", { enum: ["pending", "processing", "completed", "failed"] })
         .notNull()
         .default("pending"),
-    provider: text("provider").notNull(),
-    reference: text("reference"),
-    createdAt: int("created_at", { mode: "timestamp" })
-        .notNull()
-        .default(sql`(unixepoch())`),
-    updatedAt: int("updated_at", { mode: "timestamp" })
-        .notNull()
-        .default(sql`(unixepoch())`)
-        .$onUpdate(() => sql`(unixepoch())`),
+    provider: varchar("provider").notNull(),
+    reference: varchar("reference"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

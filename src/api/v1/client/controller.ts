@@ -1,7 +1,7 @@
 import { Hono } from "hono";
-import { Bindings, TokenPayload } from "../../../../lib/types";
+import type { ENV, TokenPayload } from "../../../../lib/types";
 import { zValidator } from "@hono/zod-validator";
-import { drizzle } from "drizzle-orm/d1";
+import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { ClientFormSchema } from "../../../../lib/zod-schema";
 import { authMiddleware } from "../../../../middleware/authentication";
 import { handleZodValidate } from "../../../../lib/utils";
@@ -16,15 +16,19 @@ import {
     softDeleteClient,
     updateClientRecord,
     searchClientsByName,
-} from "./client-service";
-import invoiceRoutes from "../invoice/invoice-controller";
+} from "./service";
+import invoiceRoutes from "../invoice/controller";
 
-const clientRouteV1 = new Hono<{ Bindings: Bindings }>().basePath("/clients");
+const clientRouteV1 = new Hono<{
+    Bindings: ENV;
+    Variables: { db: NodePgDatabase; jwtPayload: TokenPayload };
+}>().basePath("/clients");
+
 clientRouteV1.use("*", authMiddleware());
 
 clientRouteV1.get("/", async (c) => {
-    const db = drizzle(c.env.DB);
-    const jwtPayload = c.get("jwtPayload") as TokenPayload;
+    const db = c.get("db");
+    const jwtPayload = c.get("jwtPayload");
 
     const member = await getOrganizationMember(db, jwtPayload.userId);
     if (member.length == 0) return c.json("User is not part of an organization", 400);
@@ -61,7 +65,7 @@ clientRouteV1.get("/", async (c) => {
 
 clientRouteV1.get("/:id", async (c) => {
     const id = c.req.param("id");
-    const db = drizzle(c.env.DB);
+    const db = c.get("db");
 
     const pageStr = c.req.query("page");
     const sizeStr = c.req.query("size");
@@ -103,8 +107,8 @@ clientRouteV1.post(
     }),
     async (c) => {
         const data = c.req.valid("json");
-        const db = drizzle(c.env.DB);
-        const jwtPayload = c.get("jwtPayload") as TokenPayload;
+        const db = c.get("db");
+        const jwtPayload = c.get("jwtPayload");
 
         const member = await getOrganizationMember(db, jwtPayload.userId);
         if (member.length == 0) return c.json("User is not part of an organization", 400);
@@ -116,7 +120,7 @@ clientRouteV1.post(
 );
 
 clientRouteV1.delete("/delete/:id", async (c) => {
-    const db = drizzle(c.env.DB);
+    const db = c.get("db");
     const id = c.req.param("id");
 
     await softDeleteClient(db, id);
@@ -130,7 +134,7 @@ clientRouteV1.put(
         return handleZodValidate(result, c);
     }),
     async (c) => {
-        const db = drizzle(c.env.DB);
+        const db = c.get("db");
         const data = c.req.valid("json");
         const id = c.req.param("id");
 
@@ -141,9 +145,9 @@ clientRouteV1.put(
 );
 
 clientRouteV1.post("/search", async (c) => {
-    const db = drizzle(c.env.DB);
+    const db = c.get("db");
     const data = await c.req.json();
-    const jwtPayload = c.get("jwtPayload") as TokenPayload;
+    const jwtPayload = c.get("jwtPayload");
 
     const member = await getOrganizationMember(db, jwtPayload.userId);
     if (member.length == 0) return c.json("User is not part of an organization", 400);

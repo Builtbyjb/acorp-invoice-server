@@ -1,7 +1,7 @@
 import { Hono } from "hono";
-import { Bindings, TokenPayload } from "../../../../lib/types";
+import type { ENV, TokenPayload } from "../../../../lib/types";
 import { zValidator } from "@hono/zod-validator";
-import { drizzle } from "drizzle-orm/d1";
+import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { InvoiceFormSchema } from "../../../../lib/zod-schema";
 import { planAccessMiddleware } from "../../../../middleware/plan-access";
 import { authMiddleware } from "../../../../middleware/authentication";
@@ -17,16 +17,18 @@ import {
     createInvoiceRecord,
     updateInvoiceRecord,
     softDeleteInvoice,
-} from "./invoice-service";
+} from "./service";
 
-const invoiceRouteV1 = new Hono<{ Bindings: Bindings }>().basePath("/invoices");
+const invoiceRouteV1 = new Hono<{
+    Bindings: ENV;
+    Variables: { db: NodePgDatabase; jwtPayload: TokenPayload };
+}>().basePath("/invoices");
 
-export const invoiceListRouteV1 = new Hono<{ Bindings: Bindings }>().basePath("/invoices");
-invoiceListRouteV1.use("*", authMiddleware());
+invoiceRouteV1.use("*", authMiddleware());
 
-invoiceListRouteV1.get("/", async (c) => {
-    const db = drizzle(c.env.DB);
-    const jwtPayload = c.get("jwtPayload") as TokenPayload;
+invoiceRouteV1.get("/", async (c) => {
+    const db = c.get("db");
+    const jwtPayload = c.get("jwtPayload");
 
     const member = await getOrganizationMember(db, jwtPayload.userId);
     if (member.length == 0) return c.json("User is not part of an organization", 400);
@@ -61,26 +63,26 @@ invoiceListRouteV1.get("/", async (c) => {
     );
 });
 
-invoiceRouteV1.get("/", async (c) => {
+invoiceRouteV1.get("/:clientId", async (c) => {
     const clientId = c.req.param("clientId");
     if (!clientId) return c.json({ message: "No client Id" }, 400);
 
-    const db = drizzle(c.env.DB);
+    const db = c.get("db");
 
     const result = await getClientInvoices(db, clientId);
 
     return c.json({ message: "All Invoices", data: result }, 200);
 });
 
-invoiceRouteV1.get("/:invoiceId", async (c) => {
+invoiceRouteV1.get("/:clientId/:invoiceId", async (c) => {
     const clientId = c.req.param("clientId");
     if (!clientId) return c.json({ message: "No client Id" }, 400);
 
     const invoiceId = c.req.param("invoiceId");
     if (!invoiceId) return c.json({ message: "No invoice Id" }, 400);
 
-    const jwt = c.get("jwtPayload") as TokenPayload;
-    const db = drizzle(c.env.DB);
+    const jwt = c.get("jwtPayload");
+    const db = c.get("db");
 
     const organization = await getOrganizationById(db, jwt.currentOrgId);
     if (!organization) return c.json({ message: "Organization not found" }, 404);
@@ -101,9 +103,9 @@ invoiceRouteV1.post(
         return handleZodValidate(result, c);
     }),
     async (c) => {
-        const db = drizzle(c.env.DB);
+        const db = c.get("db");
         const data = c.req.valid("json");
-        const jwtPayload = c.get("jwtPayload") as TokenPayload;
+        const jwtPayload = c.get("jwtPayload");
 
         if (!data.clientId) return c.json({ message: "Client ID is required" }, 400);
 
@@ -121,7 +123,7 @@ invoiceRouteV1.put(
     }),
     async (c) => {
         const invoiceId = c.req.param("invoiceId");
-        const db = drizzle(c.env.DB);
+        const db = c.get("db");
         const data = c.req.valid("json");
 
         await updateInvoiceRecord(db, invoiceId, data);
@@ -132,7 +134,7 @@ invoiceRouteV1.put(
 
 invoiceRouteV1.delete("/:invoiceId/delete", async (c) => {
     const invoiceId = c.req.param("invoiceId");
-    const db = drizzle(c.env.DB);
+    const db = c.get("db");
 
     await softDeleteInvoice(db, invoiceId);
 

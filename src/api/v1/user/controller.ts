@@ -1,9 +1,9 @@
 import { Hono } from "hono";
-import { Bindings, Client, Invoice, TokenPayload } from "../../../../lib/types";
-import { drizzle } from "drizzle-orm/d1";
+import type { ENV, Client, Invoice, TokenPayload } from "@/lib/types";
+import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { eq, and } from "drizzle-orm";
-import { clients, invoices } from "../../../../db/invoice-schema";
-import { organizations, users } from "../../../../db/schemas";
+import { clients, invoices } from "@/db/schema";
+import { organizations, users } from "@/db/schema";
 import {
     countPaidInvoices,
     calculateRevenue,
@@ -11,18 +11,22 @@ import {
     getInvoiceData,
     getMonthlyRevenues,
     getRecentInvoices,
-} from "./user-service";
-import { authMiddleware } from "../../../../middleware/authentication";
+} from "./service";
+import { authMiddleware } from "@/middleware/authentication";
 import { zValidator } from "@hono/zod-validator";
-import { getBlobURL, handleZodValidate } from "../../../../lib/utils";
-import { UserSchema, BusinessSchema, FeedbackSchema } from "../../../../lib/zod-schema";
+import { getBlobURL, handleZodValidate } from "@/lib/utils";
+import { UserSchema, BusinessSchema, FeedbackSchema } from "@/lib/zod-schema";
 
-const userRouteV1 = new Hono<{ Bindings: Bindings }>().basePath("/user");
+const userRouteV1 = new Hono<{
+    Bindings: ENV;
+    Variables: { db: NodePgDatabase; jwtPayload: TokenPayload };
+}>().basePath("/user");
+
 userRouteV1.use("*", authMiddleware());
 
 userRouteV1.get("/dashboard", async (c) => {
-    const db = drizzle(c.env.DB);
-    const jwtPayload = c.get("jwtPayload") as TokenPayload;
+    const db = c.get("db");
+    const jwtPayload = c.get("jwtPayload");
 
     const allClients: Client[] = await db
         .select()
@@ -62,8 +66,8 @@ userRouteV1.get("/dashboard", async (c) => {
 });
 
 userRouteV1.get("/settings", async (c) => {
-    const db = drizzle(c.env.DB);
-    const jwtPayload = c.get("jwtPayload") as TokenPayload;
+    const db = c.get("db");
+    const jwtPayload = c.get("jwtPayload");
 
     const user = await db.select().from(users).where(eq(users.id, jwtPayload.userId)).get();
     if (!user) return c.json({ message: "User not found" }, 404);
@@ -101,9 +105,9 @@ userRouteV1.put(
     }),
     async (c) => {
         const data = c.req.valid("form");
-        const db = drizzle(c.env.DB);
+        const db = c.get("db");
 
-        const jwtPayload = c.get("jwtPayload") as TokenPayload;
+        const jwtPayload = c.get("jwtPayload");
 
         let blobURL: string | null = null;
         if (data.avatar) {
@@ -132,9 +136,9 @@ userRouteV1.put(
     }),
     async (c) => {
         const data = c.req.valid("form");
-        const db = drizzle(c.env.DB);
+        const db = c.get("db");
 
-        const jwtPayload = c.get("jwtPayload") as TokenPayload;
+        const jwtPayload = c.get("jwtPayload");
 
         let blobURL: string | null = null;
         if (data.logo) {

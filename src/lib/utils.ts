@@ -3,7 +3,7 @@ import { ErrorResult, type TokenPayload } from "./types";
 import type { InvoiceNumber, InvoiceItem } from "./types";
 import { getCookie } from "hono/cookie";
 import { verify, sign } from "hono/jwt";
-import { otpTemplate } from "../templates/util";
+import { otpTemplate } from "@/templates/util";
 
 const AUTH_HEADER_PREFIX = "Bearer ";
 

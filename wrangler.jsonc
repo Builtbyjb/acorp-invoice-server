@@ -21,13 +21,11 @@
     },
     //  Production Environment
     "production": {
-      "name": "ihod-server-production",
-      "d1_databases": [
+      "name": "acorp-invoice-server-production",
+      "hyperdrive": [
         {
-          "binding": "DB",
-          "database_name": "acorp-db",
-          "database_id": "f277e299-38d2-4252-aa3a-24b902823674",
-          "migrations_dir": "drizzle/migrations",
+          "binding": "HYPERDRIVE",
+          "id": "13dc29eeac9148c9935ea2b84d48bb67",
         },
       ],
       "r2_buckets": [
@@ -62,16 +60,11 @@
     },
     // Development Environment
     "dev": {
-      "name": "ihod-server-dev",
-      "vars": {
-        "STRIPE_PUBLISHABLE_KEY": "pk_test_...",
-      },
-      "d1_databases": [
+      "name": "acorp-invoice-server-dev",
+      "hyperdrive": [
         {
-          "binding": "DB",
-          "database_name": "dev-db",
-          "database_id": "18f70db9-95a9-492b-a230-722cc95baa9c",
-          "migrations_dir": "drizzle/migrations",
+          "binding": "HYPERDRIVE",
+          "id": "1f8655c623744ba7a87dde09997d204b",
         },
       ],
       "r2_buckets": [
@@ -113,6 +106,13 @@
       "type": "Text",
       "globs": ["**/*.html"],
       "fallthrough": true,
+    },
+  ],
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "13dc29eeac9148c9935ea2b84d48bb67",
+      "localConnectionString": "postgresql://user:password@localhost:5432/databasename",
     },
   ],
 

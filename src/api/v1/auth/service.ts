@@ -1,8 +1,12 @@
-import { DrizzleD1Database } from "drizzle-orm/d1";
-import { organizations } from "../../../db/schemas";
+import { NodePgDatabase } from "drizzle-orm/node-postgres";
+import { organizations } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
-export async function validateReferral(db: DrizzleD1Database, referral: string): Promise<number | null> {
-    const org = await db.select().from(organizations).where(eq(organizations.referralCode, referral)).get();
+export async function validateReferral(db: NodePgDatabase, referral: string): Promise<number | null> {
+    const org = await db
+        .select()
+        .from(organizations)
+        .where(eq(organizations.referralCode, referral))
+        .then((res) => res[0]);
     return org ? org.id : null;
 }

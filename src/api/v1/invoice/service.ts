@@ -1,19 +1,19 @@
-import { DrizzleD1Database } from "drizzle-orm/d1";
+import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { eq, and, desc, sql } from "drizzle-orm";
-import { clients, invoices } from "../../../../db/invoice-schema";
-import { members, organizations } from "../../../../db/schemas";
+import { clients, invoices } from "../../../../db/schema";
+import { members, organizations } from "../../../../db/schema";
 import { getNewInvoiceNumber } from "../../../../lib/utils";
 import { TokenPayload } from "../../../../lib/types";
 
-export async function getOrganizationMember(db: DrizzleD1Database, userId: number) {
+export async function getOrganizationMember(db: NodePgDatabase, userId: number) {
     return db.select().from(members).where(eq(members.userId, userId));
 }
 
-export async function getOrganizationById(db: DrizzleD1Database, orgId: number) {
+export async function getOrganizationById(db: NodePgDatabase, orgId: number) {
     return db.select().from(organizations).where(eq(organizations.id, orgId)).get();
 }
 
-export async function countOrgInvoices(db: DrizzleD1Database, orgId: number) {
+export async function countOrgInvoices(db: NodePgDatabase, orgId: number) {
     const baseWhere = and(eq(clients.organizationId, orgId), eq(clients.deleted, false), eq(invoices.deleted, false));
 
     const countResult = await db
@@ -26,7 +26,7 @@ export async function countOrgInvoices(db: DrizzleD1Database, orgId: number) {
     return countResult?.count ?? 0;
 }
 
-export async function fetchOrgInvoicesPage(db: DrizzleD1Database, orgId: number, page: number, size: number) {
+export async function fetchOrgInvoicesPage(db: NodePgDatabase, orgId: number, page: number, size: number) {
     const baseWhere = and(eq(clients.organizationId, orgId), eq(clients.deleted, false), eq(invoices.deleted, false));
 
     const offset = (page - 1) * size;
@@ -43,7 +43,7 @@ export async function fetchOrgInvoicesPage(db: DrizzleD1Database, orgId: number,
     return result.map((r) => r.invoices);
 }
 
-export async function getClientInvoices(db: DrizzleD1Database, clientId: string) {
+export async function getClientInvoices(db: NodePgDatabase, clientId: string) {
     return db
         .select()
         .from(invoices)
@@ -51,7 +51,7 @@ export async function getClientInvoices(db: DrizzleD1Database, clientId: string)
         .orderBy(desc(invoices.createdAt));
 }
 
-export async function getSingleInvoice(db: DrizzleD1Database, clientId: string, invoiceId: string) {
+export async function getSingleInvoice(db: NodePgDatabase, clientId: string, invoiceId: string) {
     return db
         .select()
         .from(invoices)
@@ -59,11 +59,11 @@ export async function getSingleInvoice(db: DrizzleD1Database, clientId: string, 
         .get();
 }
 
-export async function getClientRecord(db: DrizzleD1Database, clientId: string) {
+export async function getClientRecord(db: NodePgDatabase, clientId: string) {
     return db.select().from(clients).where(eq(clients.id, clientId)).get();
 }
 
-export async function createInvoiceRecord(db: DrizzleD1Database, data: any, jwtPayload: TokenPayload) {
+export async function createInvoiceRecord(db: NodePgDatabase, data: any, jwtPayload: TokenPayload) {
     const organization = await getOrganizationById(db, jwtPayload.currentOrgId);
     if (!organization) return null;
 
@@ -97,7 +97,7 @@ export async function createInvoiceRecord(db: DrizzleD1Database, data: any, jwtP
     return { invoiceId, invoiceNumber };
 }
 
-export async function updateInvoiceRecord(db: DrizzleD1Database, invoiceId: string, data: any) {
+export async function updateInvoiceRecord(db: NodePgDatabase, invoiceId: string, data: any) {
     await db
         .update(invoices)
         .set({
@@ -114,6 +114,6 @@ export async function updateInvoiceRecord(db: DrizzleD1Database, invoiceId: stri
         .where(eq(invoices.id, invoiceId));
 }
 
-export async function softDeleteInvoice(db: DrizzleD1Database, invoiceId: string) {
+export async function softDeleteInvoice(db: NodePgDatabase, invoiceId: string) {
     await db.update(invoices).set({ deleted: true }).where(eq(invoices.id, invoiceId));
 }

@@ -1,35 +1,25 @@
 import { Hono, type Context } from "hono";
 import { zValidator } from "@hono/zod-validator";
-import { ENV } from "../../../lib/types";
-import { drizzle } from "drizzle-orm/d1";
+import { ENV } from "@/lib/types";
+import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { DrizzleQueryError, eq } from "drizzle-orm";
-import { members, organizations, users } from "../../../db/schemas";
-import {
-    parseToken,
-    parseTokenValue,
-    signToken,
-    sendOTPEmail,
-    handleZodValidate,
-    getTokenFromCookieOrHeader,
-} from "../../../lib/utils";
-import { setCookie, deleteCookie } from "hono/cookie";
-import type { TokenPayload } from "../../../lib/types";
-import { ErrorResult } from "../../../lib/types";
-import {
-    getAccessTokenExp,
-    ACCESS_TOKEN_MAX_AGE,
-    getRefreshTokenExp,
-    REFRESH_TOKEN_MAX_AGE,
-} from "../../../lib/constants";
+import { members, organizations, users } from "@/db/schema";
+import { parseToken, parseTokenValue, signToken, sendOTPEmail, handleZodValidate } from "@/lib/utils";
+// import { setCookie, deleteCookie } from "hono/cookie";
+import type { TokenPayload } from "@/lib/types";
+import { ErrorResult } from "@/lib/types";
+import { getAccessTokenExp, ACCESS_TOKEN_MAX_AGE, getRefreshTokenExp, REFRESH_TOKEN_MAX_AGE } from "@/lib/constants";
 import { loginSchema, otpSchema, signupSchema } from "./zod-schema";
 import { validateReferral } from "./service";
-import { detectProvider, getGateway, getCurrency } from "../../../lib/payment";
 
-function isMobileClient(c: Context): boolean {
-    return c.req.header("X-Mobile-Client") === "true";
-}
+// function isMobileClient(c: Context): boolean {
+//     return c.req.header("X-Mobile-Client") === "true";
+// }
 
-const authRouteV1 = new Hono<{ Bindings: ENV }>().basePath("/auth");
+const authRouteV1 = new Hono<{
+    Bindings: ENV;
+    Variables: { db: NodePgDatabase; jwtPayload: TokenPayload };
+}>().basePath("/auth");
 
 authRouteV1.post(
     "/login",
@@ -38,9 +28,14 @@ authRouteV1.post(
     }),
     async (c) => {
         const { email } = c.req.valid("json");
-        const db = drizzle(c.env.DB);
+        const db = c.get("db");
 
-        const user = await db.select().from(users).where(eq(users.email, email)).get();
+        const user = await db
+            .select()
+            .from(users)
+            .where(eq(users.email, email))
+            .then((res) => res[0]);
+
         if (!user) {
             console.log("Error finding user");
             return c.json({ message: "User not found" }, 404);
@@ -61,16 +56,16 @@ authRouteV1.post(
         const signResult = await signToken(c, payload);
         if (signResult instanceof Error) return c.json({ message: signResult.message }, 500);
 
-        setCookie(c, "otp_token", signResult, {
-            httpOnly: true,
-            secure: true,
-            sameSite: c.env.ENV === "dev" ? "none" : "lax",
-            path: "/",
-            maxAge: ACCESS_TOKEN_MAX_AGE,
-        });
+        // setCookie(c, "otp_token", signResult, {V
+        //     httpOnly: true,
+        //     secure: true,
+        //     sameSite: c.env.ENV === "dev" ? "none" : "lax",
+        //     path: "/",
+        //     maxAge: ACCESS_TOKEN_MAX_AGE,
+        // });
 
-        const mobile = isMobileClient(c);
-        return c.json({ message: "OTP sent to your email", ...(mobile ? { otpToken: signResult } : {}) }, 200);
+        // const mobile = isMobileClient(c);
+        return c.json({ message: "OTP sent to your email", authToken: signResult }, 200);
     },
 );
 
@@ -81,37 +76,22 @@ authRouteV1.post(
     }),
     async (c) => {
         const data = c.req.valid("json");
-        const db = drizzle(c.env.DB);
+        const db = c.get("db");
 
-        // verify referral
         let referredBy: number | null = null;
         if (data.referral) referredBy = await validateReferral(db, data.referral);
 
-        // Check if user exists
-        const prevUser = await db.select().from(users).where(eq(users.email, data.email)).get();
-        if (prevUser) return c.json({ message: "A user with this email address exists" }, 400);
+        const prevUser = await db.select().from(users).where(eq(users.email, data.email));
+        if (prevUser.length > 0) return c.json({ message: "A user with this email address exists" }, 400);
 
         let organization: { id: number } | undefined;
         let user: { id: number; email: string; username: string } | undefined;
         let member: { id: number } | undefined;
 
         try {
-            // Detect payment provider
-            let provider: "paystack" | "stripe" | null = data.paymentProvider as "paystack" | "stripe" | null;
-            if (!provider) {
-                provider = detectProvider(data.country);
-            }
-            if (!provider) {
-                return c.json({ message: "Unable to determine payment provider. Please select a provider." }, 400);
-            }
+            const currency = data.currency || "NGN";
+            // const customer = { id: 0, customerCode: null };
 
-            const currency = data.currency || getCurrency(provider);
-            const gateway = getGateway(provider, c.env);
-
-            // Create customer with the selected gateway
-            const customer = await gateway.createCustomer(data.email, data.firstname, data.lastname);
-
-            // Create organization
             organization = await db
                 .insert(organizations)
                 .values({
@@ -121,18 +101,14 @@ authRouteV1.post(
                     city: data.city,
                     country: data.country,
                     website: data.website,
-                    paymentProvider: provider,
                     currency,
                     referredBy,
-                    paystackCustomerCode: provider === "paystack" ? customer.customerCode : null,
-                    paystackCustomerId:
-                        provider === "paystack" ? (typeof customer.id === "number" ? customer.id : null) : null,
-                    stripeCustomerId: provider === "stripe" ? String(customer.id) : null,
                 })
                 .returning({ id: organizations.id })
-                .get();
+                .then((res) => res[0]);
 
-            // Create user
+            if (!organization) throw new Error("Failed to create organization");
+
             user = await db
                 .insert(users)
                 .values({
@@ -142,10 +118,11 @@ authRouteV1.post(
                     username: data.username,
                     currentOrgId: organization.id,
                 })
-                .returning()
-                .get();
+                .returning({ id: users.id, email: users.email, username: users.username })
+                .then((res) => res[0]);
 
-            // Create member
+            if (!user) throw new Error("Failed to create user");
+
             member = await db
                 .insert(members)
                 .values({
@@ -154,7 +131,7 @@ authRouteV1.post(
                     roleId: 1,
                 })
                 .returning({ id: members.id })
-                .get();
+                .then((res) => res[0]);
 
             const otp = await sendOTPEmail(c, data.email);
             if (otp instanceof Error) return c.json({ message: "Internal server error" }, 500);
@@ -165,28 +142,23 @@ authRouteV1.post(
                 username: user.username,
                 currentOrgId: organization.id,
                 otp: otp,
-                paymentProvider: provider,
-                paystackCustomerCode: provider === "paystack" ? customer.customerCode : undefined,
-                paystackCustomerId: provider === "paystack" ? Number(customer.id) : undefined,
-                stripeCustomerId: provider === "stripe" ? String(customer.id) : undefined,
                 exp: getAccessTokenExp(),
             };
 
             const signResult = await signToken(c, payload);
             if (signResult instanceof Error) return c.json({ message: signResult.message }, 500);
 
-            setCookie(c, "otp_token", signResult, {
-                httpOnly: true,
-                secure: true,
-                sameSite: c.env.ENV === "dev" ? "None" : "lax",
-                path: "/",
-                maxAge: ACCESS_TOKEN_MAX_AGE,
-            });
+            // setCookie(c, "otp_token", signResult, {
+            //     httpOnly: true,
+            //     secure: true,
+            //     sameSite: c.env.ENV === "dev" ? "None" : "lax",
+            //     path: "/",
+            //     maxAge: ACCESS_TOKEN_MAX_AGE,
+            // });
 
-            const mobile = isMobileClient(c);
-            return c.json({ message: "Sign up completed", ...(mobile ? { otpToken: signResult } : {}) }, 200);
+            // const mobile = isMobileClient(c);
+            return c.json({ message: "Sign up completed", otpToken: signResult }, 200);
         } catch (error) {
-            // Clean up on failure
             if (error instanceof DrizzleQueryError) {
                 if (user?.id) await db.delete(users).where(eq(users.id, user.id));
                 if (organization?.id) await db.delete(organizations).where(eq(organizations.id, organization.id));
@@ -204,32 +176,33 @@ authRouteV1.post(
         return handleZodValidate(result, c);
     }),
     async (c) => {
-        const db = drizzle(c.env.DB);
-        const { otp, otpToken } = c.req.valid("json");
+        const db = c.get("db");
+        const { otp } = c.req.valid("json");
 
-        const otpTokenValue =
-            (isMobileClient(c) && otpToken ? otpToken : undefined) ?? getTokenFromCookieOrHeader(c, "otp_token");
-        if (!otpTokenValue) {
+        if (!otp) {
             return c.json({ message: "OTP token not found" }, 401);
         }
 
-        const parsed = await parseTokenValue(c, otpTokenValue);
+        const parsed = await parseTokenValue(c, otp);
         if (parsed instanceof ErrorResult) return c.json({ message: parsed.message }, parsed.code);
 
-        // Verify OTP code
         if (!parsed.otp) return c.json({ message: "OTP not found" }, 400);
         if (parsed.otp !== otp) return c.json({ message: "Invalid OTP" }, 400);
 
-        // Verify user exists
-        const user = await db.select().from(users).where(eq(users.id, parsed.userId)).get();
+        const user = await db
+            .select()
+            .from(users)
+            .where(eq(users.id, parsed.userId))
+            .then((res) => res[0]);
+
         if (!user) return c.json({ message: "User not found" }, 404);
 
-        // Get organization details
         const organization = await db
             .select()
             .from(organizations)
             .where(eq(organizations.id, parsed.currentOrgId))
-            .get();
+            .then((res) => res[0]);
+
         if (!organization) return c.json({ message: "User organization not found" }, 404);
 
         const payload: TokenPayload = {
@@ -238,50 +211,21 @@ authRouteV1.post(
             email: user.email,
             currentOrgId: parsed.currentOrgId,
             organizationName: organization.name,
-            paymentProvider: organization.paymentProvider || undefined,
-            paystackCustomerCode: organization.paystackCustomerCode || undefined,
-            paystackCustomerId: organization.paystackCustomerId || undefined,
-            stripeCustomerId: organization.stripeCustomerId || undefined,
             exp: getRefreshTokenExp(),
         };
 
-        const refreshToken = await signToken(c, payload);
-        if (refreshToken instanceof Error) return c.json({ message: refreshToken.message }, 500);
+        const authToken = await signToken(c, payload);
+        if (authToken instanceof Error) return c.json({ message: authToken.message }, 500);
 
-        setCookie(c, "refresh_token", refreshToken, {
-            httpOnly: true,
-            secure: true,
-            sameSite: c.env.ENV === "dev" ? "none" : "lax",
-            path: "/",
-            maxAge: REFRESH_TOKEN_MAX_AGE,
-        });
-
-        const accessPayload: TokenPayload = {
-            userId: parsed.userId,
-            username: user.username,
-            email: user.email,
-            currentOrgId: parsed.currentOrgId,
-            organizationName: organization.name,
-            paymentProvider: organization.paymentProvider || undefined,
-            paystackCustomerCode: organization.paystackCustomerCode || undefined,
-            paystackCustomerId: organization.paystackCustomerId || undefined,
-            stripeCustomerId: organization.stripeCustomerId || undefined,
-            exp: getAccessTokenExp(),
-        };
-
-        const accessToken = await signToken(c, accessPayload);
-        if (accessToken instanceof Error) c.json({ message: accessToken.message }, 500);
-
-        const mobile = isMobileClient(c);
+        // const mobile = isMobileClient(c);
         return c.json(
             {
-                accessToken: accessToken,
                 user: {
                     username: user.username,
                     organizationName: organization.name,
                     email: user.email,
                 },
-                ...(mobile ? { refreshToken } : {}),
+                authToken,
             },
             200,
         );
@@ -289,13 +233,17 @@ authRouteV1.post(
 );
 
 authRouteV1.get("/refresh-token", async (c) => {
-    const db = drizzle(c.env.DB);
+    const db = c.get("db");
 
     const parsed = await parseToken(c, "refresh_token");
     if (parsed instanceof ErrorResult) return c.json({ message: parsed.message }, parsed.code);
 
-    // Get organization details
-    const organization = await db.select().from(organizations).where(eq(organizations.id, parsed.currentOrgId)).get();
+    const organization = await db
+        .select()
+        .from(organizations)
+        .where(eq(organizations.id, parsed.currentOrgId))
+        .then((res) => res[0]);
+
     if (!organization) return c.json({ message: "User organization not found" }, 404);
 
     const accessPayload: TokenPayload = {
@@ -304,10 +252,6 @@ authRouteV1.get("/refresh-token", async (c) => {
         email: parsed.email,
         currentOrgId: parsed.currentOrgId,
         organizationName: organization.name,
-        paymentProvider: organization.paymentProvider || undefined,
-        paystackCustomerCode: parsed.paystackCustomerCode,
-        paystackCustomerId: parsed.paystackCustomerId,
-        stripeCustomerId: parsed.stripeCustomerId,
         exp: getAccessTokenExp(),
     };
 
@@ -327,9 +271,9 @@ authRouteV1.get("/refresh-token", async (c) => {
     );
 });
 
-authRouteV1.get("/logout", (c) => {
-    deleteCookie(c, "refresh_token");
-    return c.json({ message: "Logged out" });
-});
+// authRouteV1.get("/logout", (c) => {
+//     deleteCookie(c, "refresh_token");
+//     return c.json({ message: "Logged out" });
+// });
 
 export default authRouteV1;

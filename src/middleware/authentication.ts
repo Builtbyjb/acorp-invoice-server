@@ -3,7 +3,10 @@ import type { TokenPayload, ENV } from "../lib/types";
 import { getTokenFromCookieOrHeader } from "../lib/utils";
 import { verify } from "hono/jwt";
 
-export function authMiddleware(): MiddlewareHandler<{ Bindings: ENV; Variables: { jwtPayload: TokenPayload } }> {
+export default function authMiddleware(): MiddlewareHandler<{
+    Bindings: ENV;
+    Variables: { jwtPayload: TokenPayload };
+}> {
     return async (c, next) => {
         const token = getTokenFromCookieOrHeader(c, "refresh_token");
         if (!token) {

@@ -1,7 +1,14 @@
 import { Hono } from "hono";
-import type { Bindings } from "../../../../lib/types";
+import type { ENV, TokenPayload } from "../../../../lib/types";
+import { authMiddleware } from "../../../../middleware/authentication";
+import { NodePgDatabase } from "drizzle-orm/node-postgres";
 
-const blobRouteV1 = new Hono<{ Bindings: Bindings }>().basePath("/blobs");
+const blobRouteV1 = new Hono<{
+    Bindings: ENV;
+    Variables: { db: NodePgDatabase; jwtPayload: TokenPayload };
+}>().basePath("/blobs");
+
+blobRouteV1.use("*", authMiddleware());
 
 blobRouteV1.get("/:key", async (c) => {
     const key = c.req.param("key");

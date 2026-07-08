@@ -1,19 +1,19 @@
-import { DrizzleD1Database } from "drizzle-orm/d1";
+import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { eq, and, like, desc } from "drizzle-orm";
-import { clients, invoices } from "../../../../db/invoice-schema";
-import { members } from "../../../../db/schemas";
+import { clients, invoices } from "../../../../db/schema";
+import { members } from "../../../../db/schema";
 import { ClientListSchema, ClientSchema } from "../../../../lib/zod-schema";
 
-export async function getOrganizationMember(db: DrizzleD1Database, userId: number) {
+export async function getOrganizationMember(db: NodePgDatabase, userId: number) {
     return db.select().from(members).where(eq(members.userId, userId));
 }
 
-export async function countClients(db: DrizzleD1Database, orgId: number) {
+export async function countClients(db: NodePgDatabase, orgId: number) {
     const baseWhere = and(eq(clients.organizationId, orgId), eq(clients.deleted, false));
     return db.$count(clients, baseWhere);
 }
 
-export async function fetchClientsPage(db: DrizzleD1Database, orgId: number, page: number, size: number) {
+export async function fetchClientsPage(db: NodePgDatabase, orgId: number, page: number, size: number) {
     const baseWhere = and(eq(clients.organizationId, orgId), eq(clients.deleted, false));
     const offset = (page - 1) * size;
 
@@ -28,7 +28,7 @@ export async function fetchClientsPage(db: DrizzleD1Database, orgId: number, pag
     return ClientListSchema.parse(result);
 }
 
-export async function getClientById(db: DrizzleD1Database, id: string) {
+export async function getClientById(db: NodePgDatabase, id: string) {
     return db
         .select()
         .from(clients)
@@ -36,12 +36,12 @@ export async function getClientById(db: DrizzleD1Database, id: string) {
         .get();
 }
 
-export async function countClientInvoices(db: DrizzleD1Database, clientId: string) {
+export async function countClientInvoices(db: NodePgDatabase, clientId: string) {
     const baseWhere = and(eq(invoices.clientId, clientId), eq(invoices.deleted, false));
     return db.$count(invoices, baseWhere);
 }
 
-export async function fetchClientInvoicesPage(db: DrizzleD1Database, clientId: string, page: number, size: number) {
+export async function fetchClientInvoicesPage(db: NodePgDatabase, clientId: string, page: number, size: number) {
     const baseWhere = and(eq(invoices.clientId, clientId), eq(invoices.deleted, false));
     const offset = (page - 1) * size;
 
@@ -49,7 +49,7 @@ export async function fetchClientInvoicesPage(db: DrizzleD1Database, clientId: s
 }
 
 export async function createClientRecord(
-    db: DrizzleD1Database,
+    db: NodePgDatabase,
     data: { name: string; email?: string; phone?: string; address?: string; city?: string; country?: string },
     orgId: number,
 ) {
@@ -71,12 +71,12 @@ export async function createClientRecord(
     return ClientSchema.parse(client);
 }
 
-export async function softDeleteClient(db: DrizzleD1Database, id: string) {
+export async function softDeleteClient(db: NodePgDatabase, id: string) {
     await db.update(clients).set({ deleted: true }).where(eq(clients.id, id));
 }
 
 export async function updateClientRecord(
-    db: DrizzleD1Database,
+    db: NodePgDatabase,
     id: string,
     data: { name: string; email?: string; phone?: string; address?: string; city?: string; country?: string },
 ) {
@@ -93,7 +93,7 @@ export async function updateClientRecord(
         .where(eq(clients.id, id));
 }
 
-export async function searchClientsByName(db: DrizzleD1Database, orgId: number, query: string) {
+export async function searchClientsByName(db: NodePgDatabase, orgId: number, query: string) {
     return db
         .select()
         .from(clients)
