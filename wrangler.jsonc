@@ -1,30 +1,18 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "server",
+  "name": "invoice-server",
   "main": "src/index.ts",
   "compatibility_date": "2026-04-17",
+  "compatibility_flags": ["nodejs_compat"],
   "env": {
-    // Staging Environment
-    "staging": {
-      "name": "ihod-server-staging",
-      "ratelimits": [
-        {
-          "name": "RATE_LIMITER",
-          "namespace_id": "1001",
-          // 60 requests per minute
-          "simple": {
-            "limit": 60,
-            "period": 60,
-          },
-        },
-      ],
-    },
-    //  Production Environment
+    /************************************************/
+    /******* Production Environment *****************/
+    /************************************************/
     "production": {
       "name": "acorp-invoice-server-production",
       "hyperdrive": [
         {
-          "binding": "HYPERDRIVE",
+          "binding": "DB",
           "id": "13dc29eeac9148c9935ea2b84d48bb67",
         },
       ],
@@ -46,25 +34,35 @@
         {
           "name": "RATE_LIMITER",
           "namespace_id": "1001",
-          // 60 requests per minute
-          "simple": {
+          "simple": { // 60 requests per minute
             "limit": 60,
             "period": 60,
           },
         },
       ],
     },
-    // UAT Environment
+    /************************************************/
+    /******* Staging Environment ********************/
+    /************************************************/
+    "staging": {
+      "name": "ihod-server-staging",
+    },
+    /************************************************/
+    /******* UAT Environment ************************/
+    /************************************************/
     "uat": {
       "name": "ihod-server-uat",
     },
-    // Development Environment
+    /************************************************/
+    /******* Development Environment ****************/
+    /************************************************/
     "dev": {
       "name": "acorp-invoice-server-dev",
       "hyperdrive": [
         {
-          "binding": "HYPERDRIVE",
+          "binding": "DB",
           "id": "1f8655c623744ba7a87dde09997d204b",
+          // "localConnectionString": "",
         },
       ],
       "r2_buckets": [
@@ -85,8 +83,7 @@
         {
           "name": "RATE_LIMITER",
           "namespace_id": "1001",
-          // 60 requests per minute
-          "simple": {
+          "simple": { // 60 requests per minute
             "limit": 60,
             "period": 60,
           },
@@ -108,17 +105,7 @@
       "fallthrough": true,
     },
   ],
-  "hyperdrive": [
-    {
-      "binding": "HYPERDRIVE",
-      "id": "13dc29eeac9148c9935ea2b84d48bb67",
-      "localConnectionString": "postgresql://user:password@localhost:5432/databasename",
-    },
-  ],
 
-  // "compatibility_flags": [
-  //   "nodejs_compat"
-  // ],
   // "vars": {
   //   "MY_VAR": "my-variable"
   // },
@@ -126,12 +113,6 @@
   //   {
   //     "binding": "MY_KV_NAMESPACE",
   //     "id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-  //   }
-  // ],
-  // "r2_buckets": [
-  //   {
-  //     "binding": "MY_BUCKET",
-  //     "bucket_name": "my-bucket"
   //   }
   // ],
   // "d1_databases": [
@@ -144,8 +125,4 @@
   // "ai": {
   //   "binding": "AI"
   // },
-  // "observability": {
-  //   "enabled": true,
-  //   "head_sampling_rate": 1
-  // }
 }

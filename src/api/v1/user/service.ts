@@ -1,5 +1,5 @@
-import type { Invoice } from "../../../../lib/types";
-import { calculateTotalAmount, getCurrentYear } from "../../../../lib/utils";
+import type { Invoice } from "@/lib/types";
+import { calculateTotalAmount, getCurrentYear } from "@/lib/utils";
 
 export function calculateRevenue(invoices: Invoice[]): number {
     let totalRevenue = 0;

@@ -1,10 +1,10 @@
 import { Hono } from "hono";
-import type { ENV, TokenPayload } from "../../../../lib/types";
+import type { ENV, TokenPayload } from "@/lib/types";
 import { zValidator } from "@hono/zod-validator";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
-import { ClientFormSchema } from "../../../../lib/zod-schema";
-import { authMiddleware } from "../../../../middleware/authentication";
-import { handleZodValidate } from "../../../../lib/utils";
+import { ClientFormSchema } from "@/lib/zod-schema";
+import authMiddleware from "@/middleware/authentication";
+import { handleZodValidate } from "@/lib/utils";
 import {
     getOrganizationMember,
     countClients,

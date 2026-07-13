@@ -34,7 +34,7 @@ authRouteV1.post(
             .select()
             .from(users)
             .where(eq(users.email, email))
-            .then((res) => res[0]);
+            .then((result) => result[0]);
 
         if (!user) {
             console.log("Error finding user");
@@ -65,7 +65,7 @@ authRouteV1.post(
         // });
 
         // const mobile = isMobileClient(c);
-        return c.json({ message: "OTP sent to your email", authToken: signResult }, 200);
+        return c.json({ message: "OTP sent to your email", otpToken: signResult }, 200);
     },
 );
 
@@ -77,6 +77,8 @@ authRouteV1.post(
     async (c) => {
         const data = c.req.valid("json");
         const db = c.get("db");
+
+        console.log(data);
 
         let referredBy: number | null = null;
         if (data.referral) referredBy = await validateReferral(db, data.referral);
@@ -105,7 +107,7 @@ authRouteV1.post(
                     referredBy,
                 })
                 .returning({ id: organizations.id })
-                .then((res) => res[0]);
+                .then((result) => result[0]);
 
             if (!organization) throw new Error("Failed to create organization");
 
@@ -119,7 +121,7 @@ authRouteV1.post(
                     currentOrgId: organization.id,
                 })
                 .returning({ id: users.id, email: users.email, username: users.username })
-                .then((res) => res[0]);
+                .then((result) => result[0]);
 
             if (!user) throw new Error("Failed to create user");
 
@@ -131,7 +133,7 @@ authRouteV1.post(
                     roleId: 1,
                 })
                 .returning({ id: members.id })
-                .then((res) => res[0]);
+                .then((result) => result[0]);
 
             const otp = await sendOTPEmail(c, data.email);
             if (otp instanceof Error) return c.json({ message: "Internal server error" }, 500);

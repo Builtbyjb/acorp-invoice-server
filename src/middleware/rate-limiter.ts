@@ -1,5 +1,5 @@
 import { MiddlewareHandler } from "hono";
-import type { ENV } from "../lib/types";
+import type { ENV } from "@/lib/types";
 
 export default function rateLimiterMiddleware(): MiddlewareHandler<{ Bindings: ENV }> {
     return async (c, next) => {

@@ -1,6 +1,6 @@
 import { MiddlewareHandler } from "hono";
-import type { TokenPayload, ENV } from "../lib/types";
-import { getTokenFromCookieOrHeader } from "../lib/utils";
+import type { TokenPayload, ENV } from "@/lib/types";
+import { getTokenFromCookieOrHeader } from "@/lib/utils";
 import { verify } from "hono/jwt";
 
 export default function authMiddleware(): MiddlewareHandler<{

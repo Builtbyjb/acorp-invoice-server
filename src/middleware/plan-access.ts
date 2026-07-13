@@ -1,8 +1,8 @@
 import { MiddlewareHandler } from "hono";
-import type { TokenPayload, ENV } from "../lib/types";
+import type { TokenPayload, ENV } from "@/lib/types";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
-import { clients, invoices } from "../db/schema";
-import { organizations } from "../db/schema";
+import { clients, invoices } from "@/db/schema";
+import { organizations } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 
 const MAX_INVOICE_COUNT = 5;
@@ -21,7 +21,7 @@ async function verifyInvoiceCount(db: NodePgDatabase, orgId: number): Promise<bo
                 sql`TO_CHAR(${invoices.createdAt}, 'YYYY-MM') = TO_CHAR(NOW(), 'YYYY-MM')`,
             ),
         )
-        .get();
+        .then((result) => result[0]);
 
     return (result?.count ?? 0) <= MAX_INVOICE_COUNT;
 }
@@ -38,19 +38,9 @@ export default function planAccessMiddleware(): MiddlewareHandler<{
             .select()
             .from(organizations)
             .where(eq(organizations.id, jwtPayload.currentOrgId))
-            .get();
+            .then((result) => result[0]);
 
         if (!organization) return c.json({ message: "Organization not found" }, 404);
-
-        const provider = (organization.paymentProvider || "paystack") as "paystack" | "stripe";
-
-        const localStatus =
-            provider === "paystack" ? organization.paystackSubscriptionStatus : organization.stripeSubscriptionStatus;
-
-        if (localStatus === "active") {
-            await next();
-            return;
-        }
 
         await next();
     };

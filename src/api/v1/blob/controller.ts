@@ -1,6 +1,6 @@
 import { Hono } from "hono";
-import type { ENV, TokenPayload } from "../../../../lib/types";
-import { authMiddleware } from "../../../../middleware/authentication";
+import type { ENV, TokenPayload } from "@/lib/types";
+import authMiddleware from "@/middleware/authentication";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 
 const blobRouteV1 = new Hono<{

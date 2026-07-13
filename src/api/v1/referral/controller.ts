@@ -1,12 +1,12 @@
 import { Hono } from "hono";
-import type { ENV, TokenPayload } from "../../../../lib/types";
-import { authMiddleware } from "../../../../middleware/authentication";
+import type { ENV, TokenPayload } from "@/lib/types";
+import authMiddleware from "@/middleware/authentication";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
-import { organizations } from "../../../../db/schema";
+import { organizations } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
-import { handleZodValidate } from "../../../../lib/utils";
+import { handleZodValidate } from "@/lib/utils";
 import { generateReferralCode, generateReferralLink, getSubscriptionAmount } from "./service";
 
 const referralRouteV1 = new Hono<{
@@ -37,7 +37,7 @@ referralRouteV1.get("/details", async (c) => {
         .select()
         .from(organizations)
         .where(and(eq(organizations.id, jwt.currentOrgId), eq(organizations.deleted, false)))
-        .get();
+        .then((result) => result[0]);
 
     if (!organization) return c.json({ message: "Organization not found" }, 404);
 
@@ -52,14 +52,7 @@ referralRouteV1.get("/details", async (c) => {
 
     const activeReferrals = await db.$count(
         organizations,
-        and(
-            eq(organizations.referredBy, organization.id),
-            sql`(
-                ${organizations.paystackSubscriptionStatus} = 'active'
-                OR ${organizations.stripeSubscriptionStatus} = 'active'
-            )`,
-            eq(organizations.deleted, false),
-        ),
+        and(eq(organizations.referredBy, organization.id), eq(organizations.deleted, false)),
     );
 
     const payout = activeReferrals * subAmount * REWARD;
@@ -93,7 +86,7 @@ referralRouteV1.post(
                 .select()
                 .from(organizations)
                 .where(and(eq(organizations.id, jwt.currentOrgId), eq(organizations.deleted, false)))
-                .get();
+                .then((result) => result[0]);
 
             if (!organization) return c.json({ message: "Organization not found" }, 404);
 

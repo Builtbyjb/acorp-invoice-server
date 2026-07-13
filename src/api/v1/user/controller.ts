@@ -12,7 +12,7 @@ import {
     getMonthlyRevenues,
     getRecentInvoices,
 } from "./service";
-import { authMiddleware } from "@/middleware/authentication";
+import authMiddleware from "@/middleware/authentication";
 import { zValidator } from "@hono/zod-validator";
 import { getBlobURL, handleZodValidate } from "@/lib/utils";
 import { UserSchema, BusinessSchema, FeedbackSchema } from "@/lib/zod-schema";
@@ -69,14 +69,18 @@ userRouteV1.get("/settings", async (c) => {
     const db = c.get("db");
     const jwtPayload = c.get("jwtPayload");
 
-    const user = await db.select().from(users).where(eq(users.id, jwtPayload.userId)).get();
+    const user = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, jwtPayload.userId))
+        .then((result) => result[0]);
     if (!user) return c.json({ message: "User not found" }, 404);
 
     const organization = await db
         .select()
         .from(organizations)
         .where(eq(organizations.id, jwtPayload.currentOrgId))
-        .get();
+        .then((result) => result[0]);
 
     if (!organization) return c.json({ message: "User organization not found" }, 404);
 

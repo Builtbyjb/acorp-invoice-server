@@ -96,3 +96,8 @@ export type DashboardStats = {
     invoiceData: InvoiceStatusData[];
     monthlyRevenues: MonthRevenue[];
 };
+
+export type Country = {
+    name: string;
+    currency: string;
+};

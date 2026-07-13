@@ -1,16 +1,20 @@
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { eq, and, desc, sql } from "drizzle-orm";
-import { clients, invoices } from "../../../../db/schema";
-import { members, organizations } from "../../../../db/schema";
-import { getNewInvoiceNumber } from "../../../../lib/utils";
-import { TokenPayload } from "../../../../lib/types";
+import { clients, invoices } from "@/db/schema";
+import { members, organizations } from "@/db/schema";
+import { getNewInvoiceNumber } from "@/lib/utils";
+import { TokenPayload } from "@/lib/types";
 
 export async function getOrganizationMember(db: NodePgDatabase, userId: number) {
     return db.select().from(members).where(eq(members.userId, userId));
 }
 
 export async function getOrganizationById(db: NodePgDatabase, orgId: number) {
-    return db.select().from(organizations).where(eq(organizations.id, orgId)).get();
+    return db
+        .select()
+        .from(organizations)
+        .where(eq(organizations.id, orgId))
+        .then((result) => result[0]);
 }
 
 export async function countOrgInvoices(db: NodePgDatabase, orgId: number) {
@@ -21,7 +25,7 @@ export async function countOrgInvoices(db: NodePgDatabase, orgId: number) {
         .from(invoices)
         .innerJoin(clients, eq(invoices.clientId, clients.id))
         .where(baseWhere)
-        .get();
+        .then((result) => result[0]);
 
     return countResult?.count ?? 0;
 }
@@ -56,11 +60,15 @@ export async function getSingleInvoice(db: NodePgDatabase, clientId: string, inv
         .select()
         .from(invoices)
         .where(and(eq(invoices.clientId, clientId), eq(invoices.id, invoiceId), eq(invoices.deleted, false)))
-        .get();
+        .then((result) => result[0]);
 }
 
 export async function getClientRecord(db: NodePgDatabase, clientId: string) {
-    return db.select().from(clients).where(eq(clients.id, clientId)).get();
+    return db
+        .select()
+        .from(clients)
+        .where(eq(clients.id, clientId))
+        .then((result) => result[0]);
 }
 
 export async function createInvoiceRecord(db: NodePgDatabase, data: any, jwtPayload: TokenPayload) {
@@ -76,6 +84,7 @@ export async function createInvoiceRecord(db: NodePgDatabase, data: any, jwtPayl
             id: crypto.randomUUID(),
             invoiceNumber: invoiceNumber,
             clientId: data.clientId,
+            clientName: data.clientName,
             issueDate: data.issueDate,
             dueDate: data.dueDate,
             status: data.status,
@@ -86,8 +95,7 @@ export async function createInvoiceRecord(db: NodePgDatabase, data: any, jwtPayl
             notes: data.notes,
             currency: data.currency,
         })
-        .returning({ id: invoices.id })
-        .get();
+        .returning({ id: invoices.id });
 
     await db
         .update(organizations)
