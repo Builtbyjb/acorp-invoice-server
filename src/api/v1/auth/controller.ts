@@ -154,7 +154,7 @@ authRouteV1.post(
             // });
 
             // const mobile = isMobileClient(c);
-            return c.json({ message: "Sign up completed", otpToken: signResult }, 200);
+            return c.json({ message: "Sign up completed", accessToken: signResult }, 200);
         } catch (error) {
             if (error instanceof DrizzleQueryError) {
                 if (user?.id) await db.delete(users).where(eq(users.id, user.id));
