@@ -8,5 +8,6 @@ export async function validateReferral(db: NodePgDatabase, referral: string): Pr
         .from(organizations)
         .where(eq(organizations.referralCode, referral))
         .then((result) => result[0]);
+
     return org ? org.id : null;
 }

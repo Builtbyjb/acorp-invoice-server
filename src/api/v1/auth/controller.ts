@@ -5,12 +5,13 @@ import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { DrizzleQueryError, eq } from "drizzle-orm";
 import { members, organizations, users } from "@/db/schema";
 import { parseToken, parseTokenValue, signToken, sendOTPEmail, handleZodValidate } from "@/lib/utils";
-// import { setCookie, deleteCookie } from "hono/cookie";
-import type { TokenPayload } from "@/lib/types";
+import { setCookie, deleteCookie } from "hono/cookie";
+import type { Country, TokenPayload } from "@/lib/types";
 import { ErrorResult } from "@/lib/types";
 import { getAccessTokenExp, ACCESS_TOKEN_MAX_AGE, getRefreshTokenExp, REFRESH_TOKEN_MAX_AGE } from "@/lib/constants";
 import { loginSchema, otpSchema, signupSchema } from "./zod-schema";
 import { validateReferral } from "./service";
+import { COUNTRIES } from "@/lib/store/countries";
 
 // function isMobileClient(c: Context): boolean {
 //     return c.req.header("X-Mobile-Client") === "true";
@@ -47,7 +48,7 @@ authRouteV1.post(
         const payload: TokenPayload = {
             userId: user.id,
             email: user.email,
-            username: user.username,
+            firstname: user.firstname,
             currentOrgId: user.currentOrgId,
             otp: otp,
             exp: getAccessTokenExp(),
@@ -87,23 +88,18 @@ authRouteV1.post(
         if (prevUser.length > 0) return c.json({ message: "A user with this email address exists" }, 400);
 
         let organization: { id: number } | undefined;
-        let user: { id: number; email: string; username: string } | undefined;
+        let user: { id: number; email: string; firstname: string } | undefined;
         let member: { id: number } | undefined;
 
         try {
-            const currency = data.currency || "NGN";
-            // const customer = { id: 0, customerCode: null };
+            const country: Country | undefined = COUNTRIES.find((c) => c.name === data.country);
 
             organization = await db
                 .insert(organizations)
                 .values({
                     name: data.businessName,
-                    type: data.businessType,
-                    address: data.businessAddress,
-                    city: data.city,
                     country: data.country,
-                    website: data.website,
-                    currency,
+                    currency: country?.currency,
                     referredBy,
                 })
                 .returning({ id: organizations.id })
@@ -117,10 +113,9 @@ authRouteV1.post(
                     email: data.email,
                     firstname: data.firstname,
                     lastname: data.lastname,
-                    username: data.username,
                     currentOrgId: organization.id,
                 })
-                .returning({ id: users.id, email: users.email, username: users.username })
+                .returning({ id: users.id, email: users.email, firstname: users.firstname })
                 .then((result) => result[0]);
 
             if (!user) throw new Error("Failed to create user");
@@ -141,7 +136,7 @@ authRouteV1.post(
             const payload: TokenPayload = {
                 userId: user.id,
                 email: user.email,
-                username: user.username,
+                firstname: user.firstname,
                 currentOrgId: organization.id,
                 otp: otp,
                 exp: getAccessTokenExp(),
@@ -209,7 +204,7 @@ authRouteV1.post(
 
         const payload: TokenPayload = {
             userId: parsed.userId,
-            username: user.username,
+            firstname: user.firstname,
             email: user.email,
             currentOrgId: parsed.currentOrgId,
             organizationName: organization.name,
@@ -223,7 +218,7 @@ authRouteV1.post(
         return c.json(
             {
                 user: {
-                    username: user.username,
+                    firstname: user.firstname,
                     organizationName: organization.name,
                     email: user.email,
                 },
@@ -250,7 +245,7 @@ authRouteV1.get("/refresh-token", async (c) => {
 
     const accessPayload: TokenPayload = {
         userId: parsed.userId,
-        username: parsed.username,
+        firstname: parsed.firstname,
         email: parsed.email,
         currentOrgId: parsed.currentOrgId,
         organizationName: organization.name,
@@ -273,9 +268,9 @@ authRouteV1.get("/refresh-token", async (c) => {
     );
 });
 
-// authRouteV1.get("/logout", (c) => {
-//     deleteCookie(c, "refresh_token");
-//     return c.json({ message: "Logged out" });
-// });
+authRouteV1.get("/logout", (c) => {
+    deleteCookie(c, "refresh_token");
+    return c.json({ message: "Logged out" });
+});
 
 export default authRouteV1;

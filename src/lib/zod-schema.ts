@@ -2,7 +2,7 @@ import { z } from "zod";
 import { MAX_IMAGE_SIZE, ACCEPTED_IMAGE_TYPES } from "./constants";
 
 export const UserSchema = z.object({
-    username: z.string(),
+    firstname: z.string(),
     avatar: z
         .instanceof(Blob)
         .optional()
@@ -14,7 +14,7 @@ export const UserSchema = z.object({
 });
 
 export const UserSettingsSchema = z.object({
-    username: z.string(),
+    firstname: z.string(),
     avatarURL: z.string().nullable(),
 });
 

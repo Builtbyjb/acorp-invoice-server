@@ -87,7 +87,7 @@ userRouteV1.get("/settings", async (c) => {
     const setting = {
         user: {
             avatarURL: user.avatarURL,
-            username: user.username,
+            firstname: user.firstname,
         },
         business: {
             logoURL: organization.logoURL,
@@ -126,7 +126,7 @@ userRouteV1.put(
 
         await db
             .update(users)
-            .set({ avatarURL: blobURL || users.avatarURL, username: data.username })
+            .set({ avatarURL: blobURL || users.avatarURL, firstname: data.firstname })
             .where(eq(users.id, jwtPayload.userId));
 
         return c.json({ message: "User profile updated" }, 200);

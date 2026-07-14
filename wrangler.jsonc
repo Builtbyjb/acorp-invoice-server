@@ -62,7 +62,7 @@
         {
           "binding": "DB",
           "id": "1f8655c623744ba7a87dde09997d204b",
-          "localConnectionString": "postgresql://postgres:postgres@localhost:5432/invoice "
+          "localConnectionString": "postgresql://postgres:postgres@localhost:5432/invoice"
         },
       ],
       "r2_buckets": [

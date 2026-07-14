@@ -19,7 +19,7 @@ export type ENV = {
 export type TokenPayload = JWTPayload & {
     userId: number;
     email: string;
-    username: string;
+    firstname: string;
     currentOrgId: number;
     organizationName?: string;
     otp?: string;

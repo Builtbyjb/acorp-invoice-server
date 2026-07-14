@@ -9,7 +9,6 @@ export const users = pgTable("users", {
         .notNull(),
     firstname: varchar("firstname").notNull(),
     lastname: varchar("lastname").notNull(),
-    username: varchar("username").notNull(),
     avatarURL: varchar("avatar_url"),
     deleted: boolean("deleted").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -19,7 +18,7 @@ export const users = pgTable("users", {
 export const organizations = pgTable("organizations", {
     id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
     name: varchar("name").notNull().unique(),
-    type: varchar("type").notNull(),
+    type: varchar("type"),
     address: varchar("address"),
     city: varchar("city"),
     country: varchar("country"),
