@@ -1,21 +1,16 @@
-import { Hono, type Context } from "hono";
+import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { ENV } from "@/lib/types";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { DrizzleQueryError, eq } from "drizzle-orm";
 import { members, organizations, users } from "@/db/schema";
-import { parseToken, parseTokenValue, signToken, sendOTPEmail, handleZodValidate } from "@/lib/utils";
-import { setCookie, deleteCookie } from "hono/cookie";
-import type { Country, TokenPayload } from "@/lib/types";
+import { decodeTokenValue, signToken, sendOTPEmail, handleZodValidate, getTokenFromHeader } from "@/lib/utils";
+import type { Country, TokenPayload, BaseTokenPayload } from "@/lib/types";
 import { ErrorResult } from "@/lib/types";
-import { getAccessTokenExp, ACCESS_TOKEN_MAX_AGE, getRefreshTokenExp, REFRESH_TOKEN_MAX_AGE } from "@/lib/constants";
-import { loginSchema, otpSchema, signupSchema } from "./zod-schema";
-import { validateReferral } from "./service";
+import { getAccessTokenExp, getRefreshTokenExp } from "@/lib/constants";
+import { signinSchema, otpSchema, signupSchema } from "./zod-schema";
+import { validateReferral, storeRefreshToken, getRefreshToken, deleteRefreshToken } from "./service";
 import { COUNTRIES } from "@/lib/store/countries";
-
-// function isMobileClient(c: Context): boolean {
-//     return c.req.header("X-Mobile-Client") === "true";
-// }
 
 const authRouteV1 = new Hono<{
     Bindings: ENV;
@@ -23,8 +18,8 @@ const authRouteV1 = new Hono<{
 }>().basePath("/auth");
 
 authRouteV1.post(
-    "/login",
-    zValidator("json", loginSchema, (result, c) => {
+    "/signin",
+    zValidator("json", signinSchema, (result, c) => {
         return handleZodValidate(result, c);
     }),
     async (c) => {
@@ -57,16 +52,7 @@ authRouteV1.post(
         const signResult = await signToken(c, payload);
         if (signResult instanceof Error) return c.json({ message: signResult.message }, 500);
 
-        // setCookie(c, "otp_token", signResult, {V
-        //     httpOnly: true,
-        //     secure: true,
-        //     sameSite: c.env.ENV === "dev" ? "none" : "lax",
-        //     path: "/",
-        //     maxAge: ACCESS_TOKEN_MAX_AGE,
-        // });
-
-        // const mobile = isMobileClient(c);
-        return c.json({ message: "OTP sent to your email", otpToken: signResult }, 200);
+        return c.json({ message: "OTP sent to your email", accessToken: signResult }, 200);
     },
 );
 
@@ -84,6 +70,7 @@ authRouteV1.post(
         let referredBy: number | null = null;
         if (data.referral) referredBy = await validateReferral(db, data.referral);
 
+        // Check if user already exists
         const prevUser = await db.select().from(users).where(eq(users.email, data.email));
         if (prevUser.length > 0) return c.json({ message: "A user with this email address exists" }, 400);
 
@@ -94,6 +81,7 @@ authRouteV1.post(
         try {
             const country: Country | undefined = COUNTRIES.find((c) => c.name === data.country);
 
+            // Create organization
             organization = await db
                 .insert(organizations)
                 .values({
@@ -107,6 +95,7 @@ authRouteV1.post(
 
             if (!organization) throw new Error("Failed to create organization");
 
+            // Create user
             user = await db
                 .insert(users)
                 .values({
@@ -120,6 +109,7 @@ authRouteV1.post(
 
             if (!user) throw new Error("Failed to create user");
 
+            // Create member
             member = await db
                 .insert(members)
                 .values({
@@ -145,15 +135,6 @@ authRouteV1.post(
             const signResult = await signToken(c, payload);
             if (signResult instanceof Error) return c.json({ message: signResult.message }, 500);
 
-            // setCookie(c, "otp_token", signResult, {
-            //     httpOnly: true,
-            //     secure: true,
-            //     sameSite: c.env.ENV === "dev" ? "None" : "lax",
-            //     path: "/",
-            //     maxAge: ACCESS_TOKEN_MAX_AGE,
-            // });
-
-            // const mobile = isMobileClient(c);
             return c.json({ message: "Sign up completed", accessToken: signResult }, 200);
         } catch (error) {
             if (error instanceof DrizzleQueryError) {
@@ -173,103 +154,94 @@ authRouteV1.post(
         return handleZodValidate(result, c);
     }),
     async (c) => {
-        const db = c.get("db");
-        const { otp } = c.req.valid("json");
+        // const db = c.get("db");
+        const { code } = c.req.valid("json");
 
-        if (!otp) {
-            return c.json({ message: "OTP token not found" }, 401);
-        }
+        if (!code) return c.json({ message: "OTP token not found" }, 400);
+        const tempAccessToken = getTokenFromHeader(c);
+        if (!tempAccessToken) return c.json({ message: "Access token not found" }, 401);
 
-        const parsed = await parseTokenValue(c, otp);
+        const parsed = await decodeTokenValue(c, tempAccessToken);
         if (parsed instanceof ErrorResult) return c.json({ message: parsed.message }, parsed.code);
 
         if (!parsed.otp) return c.json({ message: "OTP not found" }, 400);
-        if (parsed.otp !== otp) return c.json({ message: "Invalid OTP" }, 400);
+        if (parsed.otp !== code) return c.json({ message: "Invalid OTP" }, 400);
 
-        const user = await db
-            .select()
-            .from(users)
-            .where(eq(users.id, parsed.userId))
-            .then((res) => res[0]);
-
-        if (!user) return c.json({ message: "User not found" }, 404);
-
-        const organization = await db
-            .select()
-            .from(organizations)
-            .where(eq(organizations.id, parsed.currentOrgId))
-            .then((res) => res[0]);
-
-        if (!organization) return c.json({ message: "User organization not found" }, 404);
-
-        const payload: TokenPayload = {
+        const basePayload: BaseTokenPayload = {
             userId: parsed.userId,
-            firstname: user.firstname,
-            email: user.email,
+            firstname: parsed.firstname,
+            email: parsed.email,
             currentOrgId: parsed.currentOrgId,
-            organizationName: organization.name,
+        };
+
+        const accessPayload: TokenPayload = {
+            ...basePayload,
+            exp: getAccessTokenExp(),
+        };
+
+        const accessToken = await signToken(c, accessPayload);
+        if (accessToken instanceof Error) return c.json({ message: accessToken.message }, 500);
+
+        const refreshPayload: TokenPayload = {
+            ...basePayload,
             exp: getRefreshTokenExp(),
         };
 
-        const authToken = await signToken(c, payload);
-        if (authToken instanceof Error) return c.json({ message: authToken.message }, 500);
+        const refreshTokenId = crypto.randomUUID();
+        const refreshToken = await signToken(c, refreshPayload);
+        if (refreshToken instanceof Error) return c.json({ message: refreshToken.message }, 500);
 
-        // const mobile = isMobileClient(c);
-        return c.json(
-            {
-                user: {
-                    firstname: user.firstname,
-                    organizationName: organization.name,
-                    email: user.email,
-                },
-                authToken,
-            },
-            200,
-        );
+        await storeRefreshToken(c, refreshTokenId, refreshToken);
+
+        return c.json({ accessToken, refreshToken: refreshTokenId }, 200);
     },
 );
 
 authRouteV1.get("/refresh-token", async (c) => {
-    const db = c.get("db");
+    // const db = c.get("db");
 
-    const parsed = await parseToken(c, "refresh_token");
+    const oldRefreshTokenId = getTokenFromHeader(c);
+    if (!oldRefreshTokenId) return c.json({ message: "Refresh token is required" }, 400);
+
+    const storedRefreshToken = await getRefreshToken(c, oldRefreshTokenId);
+    if (!storedRefreshToken) return c.json({ message: "Refresh token not found or expired" }, 401);
+
+    const parsed = await decodeTokenValue(c, storedRefreshToken);
     if (parsed instanceof ErrorResult) return c.json({ message: parsed.message }, parsed.code);
 
-    const organization = await db
-        .select()
-        .from(organizations)
-        .where(eq(organizations.id, parsed.currentOrgId))
-        .then((res) => res[0]);
-
-    if (!organization) return c.json({ message: "User organization not found" }, 404);
-
-    const accessPayload: TokenPayload = {
+    const basePayload: BaseTokenPayload = {
         userId: parsed.userId,
         firstname: parsed.firstname,
         email: parsed.email,
         currentOrgId: parsed.currentOrgId,
-        organizationName: organization.name,
+    };
+
+    const accessPayload: TokenPayload = {
+        ...basePayload,
         exp: getAccessTokenExp(),
     };
 
     const accessToken = await signToken(c, accessPayload);
-    if (accessToken instanceof Error) c.json({ message: accessToken.message }, 500);
+    if (accessToken instanceof Error) return c.json({ message: accessToken.message }, 500);
 
-    return c.json(
-        {
-            accessToken: accessToken,
-            user: {
-                username: parsed.username,
-                organizationName: organization.name,
-                email: parsed.email,
-            },
-        },
-        200,
-    );
+    const refreshPayload: TokenPayload = {
+        ...basePayload,
+        exp: getRefreshTokenExp(),
+    };
+
+    await deleteRefreshToken(c, oldRefreshTokenId);
+
+    const refreshTokenId = crypto.randomUUID();
+    const refreshToken = await signToken(c, refreshPayload);
+    if (refreshToken instanceof Error) return c.json({ message: refreshToken.message }, 500);
+
+    await storeRefreshToken(c, refreshTokenId, refreshToken);
+    return c.json({ accessToken, refreshToken: refreshTokenId }, 200);
 });
 
-authRouteV1.get("/logout", (c) => {
-    deleteCookie(c, "refresh_token");
+authRouteV1.get("/logout", async (c) => {
+    const refreshTokenId = getTokenFromHeader(c);
+    if (refreshTokenId) await deleteRefreshToken(c, refreshTokenId);
     return c.json({ message: "Logged out" });
 });
 

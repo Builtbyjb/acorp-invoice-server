@@ -5,14 +5,14 @@ import { getCookie } from "hono/cookie";
 import { verify, sign } from "hono/jwt";
 import { otpTemplate } from "@/templates/util";
 
-const AUTH_HEADER_PREFIX = "Bearer ";
+export function getTokenFromHeader(c: Context): string | null {
+    const auth_header_prefix = "Bearer ";
 
-export function getTokenFromCookieOrHeader(c: Context, tokenName: string): string | null {
     const authHeader = c.req.header("Authorization");
-    if (authHeader?.startsWith(AUTH_HEADER_PREFIX)) {
-        return authHeader.slice(AUTH_HEADER_PREFIX.length);
+    if (authHeader?.startsWith(auth_header_prefix)) {
+        return authHeader.slice(auth_header_prefix.length);
     }
-    return getCookie(c, tokenName) || null;
+    return null;
 }
 
 export function generateOTP(): string {
@@ -35,7 +35,7 @@ export function getNewInvoiceNumber(invoiceNumber: InvoiceNumber): InvoiceNumber
     return { year, currentNumber };
 }
 
-export async function parseTokenValue(c: Context, token: string): Promise<TokenPayload | ErrorResult> {
+export async function decodeTokenValue(c: Context, token: string): Promise<TokenPayload | ErrorResult> {
     const secret = c.env.JWT_SECRET;
     if (!secret) {
         console.error("JWT secret not configured");
@@ -48,16 +48,6 @@ export async function parseTokenValue(c: Context, token: string): Promise<TokenP
         console.log(error);
         return new ErrorResult("Error verifying token", 403);
     }
-}
-
-export async function parseToken(c: Context, tokenName: string): Promise<TokenPayload | ErrorResult> {
-    const token = getTokenFromCookieOrHeader(c, tokenName);
-    if (!token) {
-        console.log(tokenName + " token not found");
-        return new ErrorResult(tokenName + " token not found", 404);
-    }
-
-    return parseTokenValue(c, token);
 }
 
 export async function signToken(c: Context, payload: TokenPayload): Promise<Error | string> {

@@ -40,6 +40,13 @@
           },
         },
       ],
+      "kv_namespaces": [
+        {
+          "binding": "KV_STORE",
+          "id": "<PLACEHOLDER_PRODUCTION_KV_ID>",
+          "preview_id": "<PLACEHOLDER_PREVIEW_KV_ID>",
+        },
+      ],
     },
     /************************************************/
     /******* Staging Environment ********************/
@@ -87,6 +94,13 @@
             "limit": 60,
             "period": 60,
           },
+        },
+      ],
+      "kv_namespaces": [
+        {
+          "binding": "KV_STORE",
+          "id": "<PLACEHOLDER_DEV_KV_ID>",
+          "preview_id": "<PLACEHOLDER_PREVIEW_KV_ID>",
         },
       ],
     },

@@ -14,9 +14,10 @@ export type ENV = {
     SERVER_URL: string;
     R2: R2Bucket;
     RATE_LIMITER: RateLimit;
+    KV_STORE: KVNamespace;
 };
 
-export type TokenPayload = JWTPayload & {
+export type BaseTokenPayload = {
     userId: number;
     email: string;
     firstname: string;
@@ -24,6 +25,8 @@ export type TokenPayload = JWTPayload & {
     organizationName?: string;
     otp?: string;
 };
+
+export type TokenPayload = JWTPayload & BaseTokenPayload;
 
 export type ReturnId = {
     id: number | undefined;

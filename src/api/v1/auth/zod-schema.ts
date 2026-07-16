@@ -1,12 +1,11 @@
 import { z } from "zod";
 
-export const loginSchema = z.object({
+export const signinSchema = z.object({
     email: z.string().email(),
 });
 
 export const otpSchema = z.object({
-    otp: z.string().length(8),
-    otpToken: z.string().optional(),
+    code: z.string().length(8),
 });
 
 export const signupSchema = z.object({
