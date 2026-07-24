@@ -60,7 +60,7 @@ export async function getSingleInvoice(db: NodePgDatabase, clientId: string, inv
         .select()
         .from(invoices)
         .where(and(eq(invoices.clientId, clientId), eq(invoices.id, invoiceId), eq(invoices.deleted, false)))
-        .then((result) => result[0]);
+        .then();
 }
 
 export async function getClientRecord(db: NodePgDatabase, clientId: string) {
@@ -94,6 +94,7 @@ export async function createInvoiceRecord(db: NodePgDatabase, data: any, jwtPayl
             items: data.items,
             notes: data.notes,
             currency: data.currency,
+            paymentDate: data.status === "paid" && !data.paymentDate ? new Date() : (data.paymentDate ?? null),
         })
         .returning({ id: invoices.id });
 
@@ -118,6 +119,7 @@ export async function updateInvoiceRecord(db: NodePgDatabase, invoiceId: string,
             signature: data.signature,
             notes: data.notes,
             currency: data.currency,
+            paymentDate: data.status === "paid" && !data.paymentDate ? new Date() : (data.paymentDate ?? null),
         })
         .where(eq(invoices.id, invoiceId));
 }

@@ -67,6 +67,7 @@ export const InvoiceFormSchema = z.object({
     ),
     currency: z.string(),
     notes: z.string(),
+    paymentDate: z.coerce.date().optional().nullable(),
 });
 
 export const InvoiceItemSchema = z.object({
@@ -125,6 +126,11 @@ export const TopStatsSchema = z.object({
 export const FeedbackSchema = z.object({
     subject: z.string().optional(),
     description: z.string(),
+});
+
+export const DashboardRevenueQuerySchema = z.object({
+    year: z.coerce.number().int().min(2000).max(2100).optional(),
+    currency: z.string().min(1).optional(),
 });
 
 /* Subscription Plan Zod Schemas */

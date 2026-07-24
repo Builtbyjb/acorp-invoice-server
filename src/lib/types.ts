@@ -66,16 +66,16 @@ export type InvoiceStatusData = {
     count: number;
 };
 
-export type MonthRevenue = {
+export type MonthlyRevenue = {
     month: string;
-    revenue: number;
+    amount: number;
 };
 
-export type TopStats = {
-    totalRevenue: number;
-    paidInvoices: number;
-    pendingInvoices: number;
-    totalClients: number;
+export type DashboardStats = {
+    paidCount: number;
+    sentCount: number;
+    overdueCount: number;
+    draftCount: number;
 };
 
 // export type Invoice = {
@@ -94,10 +94,9 @@ export type TopStats = {
 //     createdAt: string;
 // };
 
-export type DashboardStats = {
-    topStats: TopStats;
-    invoiceData: InvoiceStatusData[];
-    monthlyRevenues: MonthRevenue[];
+export type Dashboard = {
+    stats: DashboardStats;
+    monthlyRevenues: MonthlyRevenue[];
 };
 
 export type Country = {

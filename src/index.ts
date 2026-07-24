@@ -9,6 +9,7 @@ import injectDb from "./middleware/database";
 import authRouteV1 from "@/api/v1/auth/controller";
 import userRouteV1 from "@/api/v1/user/controller";
 import clientRouteV1 from "@/api/v1/client/controller";
+import invoiceRouteV1 from "@/api/v1/invoice/controller";
 import referralRouteV1 from "@/api/v1/referral/controller";
 import blobRouteV1 from "@/api/v1/blob/controller";
 
@@ -46,6 +47,7 @@ app.onError((error, c) => {
 app.route("/api/v1", authRouteV1);
 app.route("/api/v1", userRouteV1);
 app.route("/api/v1", clientRouteV1);
+app.route("/api/v1", invoiceRouteV1);
 app.route("/api/v1", referralRouteV1);
 app.route("/api/v1", blobRouteV1);
 

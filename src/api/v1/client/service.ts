@@ -2,7 +2,7 @@ import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { eq, and, like, desc } from "drizzle-orm";
 import { clients, invoices } from "@/db/schema";
 import { members } from "@/db/schema";
-import { ClientListSchema, ClientSchema } from "@/lib/zod-schema";
+import { ClientListSchema, ClientSchema } from "./zod-schema";
 
 export async function getOrganizationMember(db: NodePgDatabase, userId: number) {
     return db.select().from(members).where(eq(members.userId, userId));
@@ -17,13 +17,7 @@ export async function fetchClientsPage(db: NodePgDatabase, orgId: number, page: 
     const baseWhere = and(eq(clients.organizationId, orgId), eq(clients.deleted, false));
     const offset = (page - 1) * size;
 
-    const result = await db
-        .select()
-        .from(clients)
-        .where(baseWhere)
-        .orderBy(desc(clients.createdAt))
-        .limit(size)
-        .offset(offset);
+    const result = await db.select().from(clients).where(baseWhere).orderBy(desc(clients.createdAt));
 
     return ClientListSchema.parse(result);
 }
@@ -65,7 +59,8 @@ export async function createClientRecord(
             city: data.city,
             country: data.country,
         })
-        .returning();
+        .returning()
+        .then((result) => result[0]);
 
     return ClientSchema.parse(client);
 }

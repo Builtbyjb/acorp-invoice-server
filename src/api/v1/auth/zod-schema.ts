@@ -8,6 +8,10 @@ export const otpSchema = z.object({
     code: z.string().length(8),
 });
 
+export const refreshSchema = z.object({
+    refreshTokenId: z.string(),
+});
+
 export const signupSchema = z.object({
     firstname: z.string().min(2),
     lastname: z.string().min(2),

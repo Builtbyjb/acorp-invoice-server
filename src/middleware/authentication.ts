@@ -3,8 +3,6 @@ import type { TokenPayload, ENV } from "@/lib/types";
 import { verify } from "hono/jwt";
 import { getTokenFromHeader } from "@/lib/utils";
 
-const AUTH_HEADER_PREFIX = "Bearer ";
-
 export default function authMiddleware(): MiddlewareHandler<{
     Bindings: ENV;
     Variables: { jwtPayload: TokenPayload };

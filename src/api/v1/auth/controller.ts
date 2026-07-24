@@ -8,7 +8,7 @@ import { decodeTokenValue, signToken, sendOTPEmail, handleZodValidate, getTokenF
 import type { Country, TokenPayload, BaseTokenPayload } from "@/lib/types";
 import { ErrorResult } from "@/lib/types";
 import { getAccessTokenExp, getRefreshTokenExp } from "@/lib/constants";
-import { signinSchema, otpSchema, signupSchema } from "./zod-schema";
+import { signinSchema, otpSchema, signupSchema, refreshSchema } from "./zod-schema";
 import { validateReferral, storeRefreshToken, getRefreshToken, deleteRefreshToken } from "./service";
 import { COUNTRIES } from "@/lib/store/countries";
 
@@ -197,47 +197,47 @@ authRouteV1.post(
     },
 );
 
-authRouteV1.get("/refresh-token", async (c) => {
-    // const db = c.get("db");
+authRouteV1.post(
+    "/refresh-token",
+    zValidator("json", refreshSchema, (result, c) => {
+        return handleZodValidate(result, c);
+    }),
+    async (c) => {
+        // const db = c.get("db");
 
-    const oldRefreshTokenId = getTokenFromHeader(c);
-    if (!oldRefreshTokenId) return c.json({ message: "Refresh token is required" }, 400);
+        const data = c.req.valid("json");
 
-    const storedRefreshToken = await getRefreshToken(c, oldRefreshTokenId);
-    if (!storedRefreshToken) return c.json({ message: "Refresh token not found or expired" }, 401);
+        const storedRefreshToken = await getRefreshToken(c, data.refreshTokenId);
 
-    const parsed = await decodeTokenValue(c, storedRefreshToken);
-    if (parsed instanceof ErrorResult) return c.json({ message: parsed.message }, parsed.code);
+        if (!storedRefreshToken) return c.json({ message: "Refresh token not found or expired" }, 401);
 
-    const basePayload: BaseTokenPayload = {
-        userId: parsed.userId,
-        firstname: parsed.firstname,
-        email: parsed.email,
-        currentOrgId: parsed.currentOrgId,
-    };
+        const parsed = await decodeTokenValue(c, storedRefreshToken);
+        if (parsed instanceof ErrorResult) return c.json({ message: parsed.message }, parsed.code);
 
-    const accessPayload: TokenPayload = {
-        ...basePayload,
-        exp: getAccessTokenExp(),
-    };
+        const basePayload: BaseTokenPayload = {
+            userId: parsed.userId,
+            firstname: parsed.firstname,
+            email: parsed.email,
+            currentOrgId: parsed.currentOrgId,
+        };
 
-    const accessToken = await signToken(c, accessPayload);
-    if (accessToken instanceof Error) return c.json({ message: accessToken.message }, 500);
+        const accessPayload: TokenPayload = { ...basePayload, exp: getAccessTokenExp() };
 
-    const refreshPayload: TokenPayload = {
-        ...basePayload,
-        exp: getRefreshTokenExp(),
-    };
+        const accessToken = await signToken(c, accessPayload);
+        if (accessToken instanceof Error) return c.json({ message: accessToken.message }, 500);
 
-    await deleteRefreshToken(c, oldRefreshTokenId);
+        const refreshPayload: TokenPayload = { ...basePayload, exp: getRefreshTokenExp() };
 
-    const refreshTokenId = crypto.randomUUID();
-    const refreshToken = await signToken(c, refreshPayload);
-    if (refreshToken instanceof Error) return c.json({ message: refreshToken.message }, 500);
+        await deleteRefreshToken(c, data.refreshTokenId);
 
-    await storeRefreshToken(c, refreshTokenId, refreshToken);
-    return c.json({ accessToken, refreshToken: refreshTokenId }, 200);
-});
+        const refreshTokenId = crypto.randomUUID();
+        const refreshToken = await signToken(c, refreshPayload);
+        if (refreshToken instanceof Error) return c.json({ message: refreshToken.message }, 500);
+
+        await storeRefreshToken(c, refreshTokenId, refreshToken);
+        return c.json({ accessToken, refreshToken: refreshTokenId }, 200);
+    },
+);
 
 authRouteV1.get("/logout", async (c) => {
     const refreshTokenId = getTokenFromHeader(c);

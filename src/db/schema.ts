@@ -80,6 +80,7 @@ export const clients = pgTable("clients", {
 
 export const invoices = pgTable("invoices", {
     id: varchar("id").primaryKey(),
+    organizationId: integer("organization_id").references(() => organizations.id),
     invoiceNumber: varchar("invoice_number").notNull(),
     clientId: varchar("client_id")
         .references(() => clients.id)
@@ -94,6 +95,7 @@ export const invoices = pgTable("invoices", {
     items: jsonb("items").$type<InvoiceItem[]>().notNull().default([]),
     notes: varchar("notes"),
     currency: varchar("currency").notNull(),
+    paymentDate: timestamp("payment_date", { withTimezone: true }),
     notified: boolean("notified").notNull().default(false),
     deleted: boolean("deleted").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

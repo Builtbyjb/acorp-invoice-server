@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { ENV, TokenPayload } from "@/lib/types";
 import { zValidator } from "@hono/zod-validator";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
-import { ClientFormSchema } from "@/lib/zod-schema";
+import { ClientFormSchema } from "./zod-schema";
 import authMiddleware from "@/middleware/authentication";
 import { handleZodValidate } from "@/lib/utils";
 import {
@@ -17,7 +17,6 @@ import {
     updateClientRecord,
     searchClientsByName,
 } from "./service";
-import invoiceRoutes from "../invoice/controller";
 
 const clientRouteV1 = new Hono<{
     Bindings: ENV;
@@ -52,12 +51,12 @@ clientRouteV1.get("/", async (c) => {
         {
             message: "Clients fetched",
             clients: parsedResult,
-            meta: {
-                total,
-                page,
-                size,
-                totalPages: Math.ceil(total / size),
-            },
+            // meta: {
+            //     total,
+            //     page,
+            //     size,
+            //     totalPages: Math.ceil(total / size),
+            // },
         },
         200,
     );
@@ -156,7 +155,5 @@ clientRouteV1.post("/search", async (c) => {
 
     return c.json({ data: result }, 200);
 });
-
-clientRouteV1.route("/:clientId", invoiceRoutes);
 
 export default clientRouteV1;

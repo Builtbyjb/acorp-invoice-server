@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import type { ENV, TokenPayload } from "@/lib/types";
+import type { ENV, Invoice, TokenPayload } from "@/lib/types";
 import { zValidator } from "@hono/zod-validator";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { InvoiceFormSchema } from "@/lib/zod-schema";
@@ -18,6 +18,7 @@ import {
     updateInvoiceRecord,
     softDeleteInvoice,
 } from "./service";
+import { InvoiceQuerySchema } from "./zod-schema";
 
 const invoiceRouteV1 = new Hono<{
     Bindings: ENV;
@@ -26,75 +27,57 @@ const invoiceRouteV1 = new Hono<{
 
 invoiceRouteV1.use("*", authMiddleware());
 
-invoiceRouteV1.get("/", async (c) => {
-    const db = c.get("db");
-    const jwtPayload = c.get("jwtPayload");
+invoiceRouteV1.get(
+    "/",
+    zValidator("query", InvoiceQuerySchema, (result, c) => {
+        return handleZodValidate(result, c);
+    }),
+    async (c) => {
+        const db = c.get("db");
+        const jwtPayload = c.get("jwtPayload");
+        const query = c.req.valid("query");
 
-    const member = await getOrganizationMember(db, jwtPayload.userId);
-    if (member.length == 0) return c.json("User is not part of an organization", 400);
+        let invoices: Invoice[] = [];
 
-    const pageStr = c.req.query("page");
-    const sizeStr = c.req.query("size");
+        if (query.clientId && query.invoiceId) {
+            invoices = await getSingleInvoice(db, query.clientId, query.invoiceId);
+        } else if (query.clientId && !query.invoiceId) {
+            invoices = await getClientInvoices(db, query.clientId);
+        } else if (!query.clientId && !query.invoiceId) {
+            const member = await getOrganizationMember(db, jwtPayload.userId);
+            if (member.length == 0) return c.json("User is not part of an organization", 400);
 
-    let page = parseInt(pageStr ?? "1", 10);
-    if (Number.isNaN(page) || page < 1) page = 1;
+            const pageStr = c.req.query("page");
+            const sizeStr = c.req.query("size");
 
-    let size = parseInt(sizeStr ?? "10", 10);
-    if (Number.isNaN(size) || size < 1) size = 10;
+            let page = parseInt(pageStr ?? "1", 10);
+            if (Number.isNaN(page) || page < 1) page = 1;
 
-    const MAX_SIZE = 100;
-    size = Math.min(size, MAX_SIZE);
+            let size = parseInt(sizeStr ?? "10", 10);
+            if (Number.isNaN(size) || size < 1) size = 10;
 
-    const total = await countOrgInvoices(db, member[0].organizationId);
-    const invoicesResult = await fetchOrgInvoicesPage(db, member[0].organizationId, page, size);
+            const MAX_SIZE = 100;
+            size = Math.min(size, MAX_SIZE);
 
-    return c.json(
-        {
-            message: "Invoices fetched",
-            invoices: invoicesResult,
-            meta: {
-                total,
-                page,
-                size,
-                totalPages: Math.ceil(total / size),
+            // const total = await countOrgInvoices(db, member[0].organizationId);
+            invoices = await fetchOrgInvoicesPage(db, member[0].organizationId, page, size);
+        }
+
+        return c.json(
+            {
+                message: "Invoices fetched",
+                invoices: invoices,
+                // meta: {
+                //     total,
+                //     page,
+                //     size,
+                //     totalPages: Math.ceil(total / size),
+                // },
             },
-        },
-        200,
-    );
-});
-
-invoiceRouteV1.get("/:clientId", async (c) => {
-    const clientId = c.req.param("clientId");
-    if (!clientId) return c.json({ message: "No client Id" }, 400);
-
-    const db = c.get("db");
-
-    const result = await getClientInvoices(db, clientId);
-
-    return c.json({ message: "All Invoices", data: result }, 200);
-});
-
-invoiceRouteV1.get("/:clientId/:invoiceId", async (c) => {
-    const clientId = c.req.param("clientId");
-    if (!clientId) return c.json({ message: "No client Id" }, 400);
-
-    const invoiceId = c.req.param("invoiceId");
-    if (!invoiceId) return c.json({ message: "No invoice Id" }, 400);
-
-    const jwt = c.get("jwtPayload");
-    const db = c.get("db");
-
-    const organization = await getOrganizationById(db, jwt.currentOrgId);
-    if (!organization) return c.json({ message: "Organization not found" }, 404);
-
-    const clientResult = await getClientRecord(db, clientId);
-    if (!clientResult) return c.json({ message: "Client not found" }, 404);
-
-    const invoiceResult = await getSingleInvoice(db, clientId, invoiceId);
-    if (!invoiceResult) return c.json({ message: "Invoice not found" }, 404);
-
-    return c.json({ invoice: invoiceResult, client: clientResult, logoURL: organization.logoURL }, 200);
-});
+            200,
+        );
+    },
+);
 
 invoiceRouteV1.post(
     "/create",
