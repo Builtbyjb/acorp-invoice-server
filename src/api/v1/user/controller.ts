@@ -51,7 +51,7 @@ userRouteV1.get("/dashboard/stats", async (c) => {
         };
     });
 
-    console.log(data);
+    // console.log(data);
 
     return c.json({ message: "Success", data }, 200);
 });
@@ -97,7 +97,7 @@ userRouteV1.get(
 
         const monthlyRevenues: MonthlyRevenue[] = getMonthlyRevenues(paidInvoices, year, currency);
 
-        console.log(monthlyRevenues);
+        // console.log(monthlyRevenues);
 
         return c.json({ message: "Success", data: { monthlyRevenues } }, 200);
     },

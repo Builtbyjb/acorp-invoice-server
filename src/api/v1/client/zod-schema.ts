@@ -7,6 +7,7 @@ export const ClientFormSchema = z.object({
     address: z.string(),
     city: z.string(),
     country: z.string(),
+    note: z.string(),
 });
 
 export const ClientSchema = z.object({
@@ -18,6 +19,7 @@ export const ClientSchema = z.object({
     address: z.string(),
     city: z.string(),
     country: z.string(),
+    note: z.string().nullable(),
     createdAt: z.coerce.date(),
 });
 

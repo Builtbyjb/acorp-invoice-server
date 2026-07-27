@@ -73,6 +73,7 @@ export const clients = pgTable("clients", {
     address: varchar("address"),
     city: varchar("city"),
     country: varchar("country"),
+    note: varchar("note"),
     deleted: boolean("deleted").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

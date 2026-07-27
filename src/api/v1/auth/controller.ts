@@ -239,7 +239,7 @@ authRouteV1.post(
     },
 );
 
-authRouteV1.get("/logout", async (c) => {
+authRouteV1.get("/signout", async (c) => {
     const refreshTokenId = getTokenFromHeader(c);
     if (refreshTokenId) await deleteRefreshToken(c, refreshTokenId);
     return c.json({ message: "Logged out" });
