@@ -3,7 +3,9 @@ import { eq, and, desc, sql } from "drizzle-orm";
 import { clients, invoices } from "@/db/schema";
 import { members, organizations } from "@/db/schema";
 import { getNewInvoiceNumber } from "@/lib/utils";
-import { TokenPayload } from "@/lib/types";
+import type { TokenPayload } from "@/lib/types/shared-types";
+import type { InvoiceDTO } from "@/lib/types/invoice-types";
+import { InvoiceSchema } from "@/lib/zod-schema/invoice-zod-schema";
 
 export async function getOrganizationMember(db: NodePgDatabase, userId: number) {
     return db.select().from(members).where(eq(members.userId, userId));
@@ -18,7 +20,11 @@ export async function getOrganizationById(db: NodePgDatabase, orgId: number) {
 }
 
 export async function countOrgInvoices(db: NodePgDatabase, orgId: number) {
-    const baseWhere = and(eq(clients.organizationId, orgId), eq(clients.deleted, false), eq(invoices.deleted, false));
+    const baseWhere = and(
+        eq(clients.organizationId, orgId),
+        eq(clients.deleted, false),
+        eq(invoices.deleted, false),
+    );
 
     const countResult = await db
         .select({ count: sql<number>`count(*)` })
@@ -30,8 +36,17 @@ export async function countOrgInvoices(db: NodePgDatabase, orgId: number) {
     return countResult?.count ?? 0;
 }
 
-export async function fetchOrgInvoicesPage(db: NodePgDatabase, orgId: number, page: number, size: number) {
-    const baseWhere = and(eq(clients.organizationId, orgId), eq(clients.deleted, false), eq(invoices.deleted, false));
+export async function fetchOrgInvoicesPage(
+    db: NodePgDatabase,
+    orgId: number,
+    page: number,
+    size: number,
+) {
+    const baseWhere = and(
+        eq(clients.organizationId, orgId),
+        eq(clients.deleted, false),
+        eq(invoices.deleted, false),
+    );
 
     const offset = (page - 1) * size;
 
@@ -55,20 +70,15 @@ export async function getClientInvoices(db: NodePgDatabase, clientId: string) {
         .orderBy(desc(invoices.createdAt));
 }
 
-export async function getSingleInvoice(db: NodePgDatabase, clientId: string, invoiceId: string) {
-    return db
+export async function getInvoiceById(db: NodePgDatabase, id: string): Promise<InvoiceDTO | null> {
+    const result = await db
         .select()
         .from(invoices)
-        .where(and(eq(invoices.clientId, clientId), eq(invoices.id, invoiceId), eq(invoices.deleted, false)))
-        .then();
-}
+        .where(and(eq(invoices.id, id), eq(invoices.deleted, false)));
 
-export async function getClientRecord(db: NodePgDatabase, clientId: string) {
-    return db
-        .select()
-        .from(clients)
-        .where(eq(clients.id, clientId))
-        .then((result) => result[0]);
+    if (result.length === 0) return null;
+
+    return InvoiceSchema.parse(result[0]);
 }
 
 export async function createInvoiceRecord(db: NodePgDatabase, data: any, jwtPayload: TokenPayload) {
@@ -85,6 +95,13 @@ export async function createInvoiceRecord(db: NodePgDatabase, data: any, jwtPayl
             invoiceNumber: invoiceNumber,
             clientId: data.clientId,
             clientName: data.clientName,
+            clientInfo: {
+                email: "",
+                phone: "",
+                address: "",
+                city: "",
+                country: "",
+            },
             issueDate: data.issueDate,
             dueDate: data.dueDate,
             status: data.status,
@@ -94,7 +111,10 @@ export async function createInvoiceRecord(db: NodePgDatabase, data: any, jwtPayl
             items: data.items,
             notes: data.notes,
             currency: data.currency,
-            paymentDate: data.status === "paid" && !data.paymentDate ? new Date() : (data.paymentDate ?? null),
+            paymentDate:
+                data.status === "paid" && !data.paymentDate
+                    ? new Date()
+                    : (data.paymentDate ?? null),
         })
         .returning({ id: invoices.id });
 
@@ -119,7 +139,10 @@ export async function updateInvoiceRecord(db: NodePgDatabase, invoiceId: string,
             signature: data.signature,
             notes: data.notes,
             currency: data.currency,
-            paymentDate: data.status === "paid" && !data.paymentDate ? new Date() : (data.paymentDate ?? null),
+            paymentDate:
+                data.status === "paid" && !data.paymentDate
+                    ? new Date()
+                    : (data.paymentDate ?? null),
         })
         .where(eq(invoices.id, invoiceId));
 }

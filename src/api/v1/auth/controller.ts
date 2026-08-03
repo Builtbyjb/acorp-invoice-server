@@ -4,12 +4,23 @@ import { ENV } from "@/lib/types";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { DrizzleQueryError, eq } from "drizzle-orm";
 import { members, organizations, users } from "@/db/schema";
-import { decodeTokenValue, signToken, sendOTPEmail, handleZodValidate, getTokenFromHeader } from "@/lib/utils";
+import {
+    decodeTokenValue,
+    signToken,
+    sendOTPEmail,
+    handleZodValidate,
+    getTokenFromHeader,
+} from "@/lib/utils";
 import type { Country, TokenPayload, BaseTokenPayload } from "@/lib/types";
 import { ErrorResult } from "@/lib/types";
 import { getAccessTokenExp, getRefreshTokenExp } from "@/lib/constants";
 import { signinSchema, otpSchema, signupSchema, refreshSchema } from "./zod-schema";
-import { validateReferral, storeRefreshToken, getRefreshToken, deleteRefreshToken } from "./service";
+import {
+    validateReferral,
+    storeRefreshToken,
+    getRefreshToken,
+    deleteRefreshToken,
+} from "./service";
 import { COUNTRIES } from "@/lib/store/countries";
 
 const authRouteV1 = new Hono<{
@@ -72,7 +83,8 @@ authRouteV1.post(
 
         // Check if user already exists
         const prevUser = await db.select().from(users).where(eq(users.email, data.email));
-        if (prevUser.length > 0) return c.json({ message: "A user with this email address exists" }, 400);
+        if (prevUser.length > 0)
+            return c.json({ message: "A user with this email address exists" }, 400);
 
         let organization: { id: number } | undefined;
         let user: { id: number; email: string; firstname: string } | undefined;
@@ -139,7 +151,8 @@ authRouteV1.post(
         } catch (error) {
             if (error instanceof DrizzleQueryError) {
                 if (user?.id) await db.delete(users).where(eq(users.id, user.id));
-                if (organization?.id) await db.delete(organizations).where(eq(organizations.id, organization.id));
+                if (organization?.id)
+                    await db.delete(organizations).where(eq(organizations.id, organization.id));
                 if (member?.id) await db.delete(members).where(eq(members.id, member.id));
             }
 
@@ -209,7 +222,8 @@ authRouteV1.post(
 
         const storedRefreshToken = await getRefreshToken(c, data.refreshTokenId);
 
-        if (!storedRefreshToken) return c.json({ message: "Refresh token not found or expired" }, 401);
+        if (!storedRefreshToken)
+            return c.json({ message: "Refresh token not found or expired" }, 401);
 
         const parsed = await decodeTokenValue(c, storedRefreshToken);
         if (parsed instanceof ErrorResult) return c.json({ message: parsed.message }, parsed.code);

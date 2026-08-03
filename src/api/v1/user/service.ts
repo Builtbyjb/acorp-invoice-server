@@ -1,12 +1,31 @@
-import type { Invoice, MonthlyRevenue } from "@/lib/types";
+import type { MonthlyRevenue } from "@/lib/types";
+import type { Invoice } from "@/lib/invoice/types";
 import { calculateTotalAmount } from "@/lib/utils";
 
-export function getMonthlyRevenues(invoices: Invoice[], year: number, currency: string): MonthlyRevenue[] {
-    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+export function getMonthlyRevenues(
+    invoices: Invoice[],
+    year: number,
+    currency: string,
+): MonthlyRevenue[] {
+    const monthNames = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+    ];
     const revenues = new Array(12).fill(0);
 
     invoices.forEach((invoice) => {
-        if (invoice.status !== "paid" || invoice.currency !== currency || !invoice.paymentDate) return;
+        if (invoice.status !== "paid" || invoice.currency !== currency || !invoice.paymentDate)
+            return;
 
         const paymentDate = new Date(invoice.paymentDate);
         if (paymentDate.getFullYear() !== year) return;

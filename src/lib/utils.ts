@@ -1,6 +1,6 @@
 import type { Context } from "hono";
 import { ErrorResult, type TokenPayload } from "./types";
-import type { InvoiceNumber, InvoiceItem } from "./types";
+import type { InvoiceNumber, InvoiceItem } from "../api/v1/invoice/types";
 import { getCookie } from "hono/cookie";
 import { verify, sign } from "hono/jwt";
 import { otpTemplate } from "@/templates/util";
@@ -35,7 +35,10 @@ export function getNewInvoiceNumber(invoiceNumber: InvoiceNumber): InvoiceNumber
     return { year, currentNumber };
 }
 
-export async function decodeTokenValue(c: Context, token: string): Promise<TokenPayload | ErrorResult> {
+export async function decodeTokenValue(
+    c: Context,
+    token: string,
+): Promise<TokenPayload | ErrorResult> {
     const secret = c.env.JWT_SECRET;
     if (!secret) {
         console.error("JWT secret not configured");
@@ -94,14 +97,21 @@ export function handleZodValidate(result: any, c: Context) {
 }
 
 export function fillTemplate(template: string, variables: Record<string, string>): string {
-    return Object.entries(variables).reduce((html, [key, value]) => html.replaceAll(`{{${key}}}`, value), template);
+    return Object.entries(variables).reduce(
+        (html, [key, value]) => html.replaceAll(`{{${key}}}`, value),
+        template,
+    );
 }
 
 export function getCurrentYear(): number {
     return new Date().getFullYear();
 }
 
-export function calculateTotalAmount(items: InvoiceItem[], taxRate: number, discount: number): number {
+export function calculateTotalAmount(
+    items: InvoiceItem[],
+    taxRate: number,
+    discount: number,
+): number {
     const subtotal = calculateSubTotal(items);
     const taxAmount = calculateTaxAmount(subtotal, taxRate);
     const discountAmount = calculateDiscount(subtotal, discount);

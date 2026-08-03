@@ -1,24 +1,22 @@
 import { Hono } from "hono";
-import type { ENV, Invoice, TokenPayload } from "@/lib/types";
+import type { ENV, TokenPayload } from "@/lib/types/shared-types";
+import type { Invoice } from "@/lib/types/invoice-types";
 import { zValidator } from "@hono/zod-validator";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
-import { InvoiceFormSchema } from "@/lib/zod-schema";
+import { InvoiceFormSchema } from "@/lib/zod-schema/invoice-zod-schema";
 import planAccessMiddleware from "@/middleware/plan-access";
 import authMiddleware from "@/middleware/authentication";
 import { handleZodValidate } from "@/lib/utils";
 import {
     getOrganizationMember,
-    countOrgInvoices,
     fetchOrgInvoicesPage,
     getClientInvoices,
-    getSingleInvoice,
-    getClientRecord,
-    getOrganizationById,
+    getInvoiceById,
     createInvoiceRecord,
     updateInvoiceRecord,
     softDeleteInvoice,
 } from "./service";
-import { InvoiceQuerySchema } from "./zod-schema";
+import { InvoiceQuerySchema } from "@/lib/zod-schema/invoice-zod-schema";
 
 const invoiceRouteV1 = new Hono<{
     Bindings: ENV;
@@ -27,6 +25,7 @@ const invoiceRouteV1 = new Hono<{
 
 invoiceRouteV1.use("*", authMiddleware());
 
+// Get all invoices for an organization
 invoiceRouteV1.get(
     "/",
     zValidator("query", InvoiceQuerySchema, (result, c) => {
@@ -39,9 +38,7 @@ invoiceRouteV1.get(
 
         let invoices: Invoice[] = [];
 
-        if (query.clientId && query.invoiceId) {
-            invoices = await getSingleInvoice(db, query.clientId, query.invoiceId);
-        } else if (query.clientId && !query.invoiceId) {
+        if (query.clientId && !query.invoiceId) {
             invoices = await getClientInvoices(db, query.clientId);
         } else if (!query.clientId && !query.invoiceId) {
             const member = await getOrganizationMember(db, jwtPayload.userId);
@@ -79,6 +76,17 @@ invoiceRouteV1.get(
     },
 );
 
+// Get a single invoice
+invoiceRouteV1.get("/:invoiceID", async (c) => {
+    const db = c.get("db");
+    const id = c.req.param("invoiceID");
+
+    const invoice = await getInvoiceById(db, id);
+    if (!invoice) return c.json({ message: "Invoice not found" }, 404);
+
+    return c.json({ message: "Invoice fetched successfully", invoice }, 200);
+});
+
 invoiceRouteV1.post(
     "/create",
     planAccessMiddleware(),
@@ -90,7 +98,7 @@ invoiceRouteV1.post(
         const data = c.req.valid("json");
         const jwtPayload = c.get("jwtPayload");
 
-        if (!data.clientId) return c.json({ message: "Client ID is required" }, 400);
+        if (!data.clientID) return c.json({ message: "Client ID is required" }, 400);
 
         const result = await createInvoiceRecord(db, data, jwtPayload);
         if (!result) return c.json({ message: "Organization not found" }, 404);
@@ -100,12 +108,12 @@ invoiceRouteV1.post(
 );
 
 invoiceRouteV1.put(
-    "/:invoiceId/edit",
+    "/:invoiceID/edit",
     zValidator("json", InvoiceFormSchema, (result, c) => {
         return handleZodValidate(result, c);
     }),
     async (c) => {
-        const invoiceId = c.req.param("invoiceId");
+        const invoiceId = c.req.param("invoiceID");
         const db = c.get("db");
         const data = c.req.valid("json");
 
@@ -115,8 +123,8 @@ invoiceRouteV1.put(
     },
 );
 
-invoiceRouteV1.delete("/:invoiceId/delete", async (c) => {
-    const invoiceId = c.req.param("invoiceId");
+invoiceRouteV1.delete("/:invoiceID/delete", async (c) => {
+    const invoiceId = c.req.param("invoiceID");
     const db = c.get("db");
 
     await softDeleteInvoice(db, invoiceId);

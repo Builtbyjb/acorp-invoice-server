@@ -1,16 +1,13 @@
 import { Hono } from "hono";
-import type { ENV, TokenPayload } from "@/lib/types";
+import type { ENV, TokenPayload } from "@/lib/types/shared-types";
 import { zValidator } from "@hono/zod-validator";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
-import { ClientFormSchema } from "./zod-schema";
+import { ClientFormSchema, ClientQuerySchema } from "@/lib/zod-schema/client-zod-schema";
 import authMiddleware from "@/middleware/authentication";
 import { handleZodValidate } from "@/lib/utils";
 import {
-    getOrganizationMember,
-    countClients,
     fetchClientsPage,
     getClientById,
-    countClientInvoices,
     fetchClientInvoicesPage,
     createClientRecord,
     softDeleteClient,
@@ -25,79 +22,62 @@ const clientRouteV1 = new Hono<{
 
 clientRouteV1.use("*", authMiddleware());
 
-clientRouteV1.get("/", async (c) => {
-    const db = c.get("db");
-    const jwtPayload = c.get("jwtPayload");
+clientRouteV1.get(
+    "/",
+    zValidator("query", ClientQuerySchema, (result, c) => {
+        return handleZodValidate(result, c);
+    }),
+    async (c) => {
+        const db = c.get("db");
+        const jwt = c.get("jwtPayload");
+        const query = c.req.valid("query");
 
-    const member = await getOrganizationMember(db, jwtPayload.userId);
-    if (member.length == 0) return c.json("User is not part of an organization", 400);
+        const result = await fetchClientsPage(db, jwt.currentOrgId, query.page, query.size);
 
-    const pageStr = c.req.query("page");
-    const sizeStr = c.req.query("size");
-
-    let page = parseInt(pageStr ?? "1", 10);
-    if (Number.isNaN(page) || page < 1) page = 1;
-
-    let size = parseInt(sizeStr ?? "10", 10);
-    if (Number.isNaN(size) || size < 1) size = 10;
-
-    const MAX_SIZE = 100;
-    size = Math.min(size, MAX_SIZE);
-
-    const total = await countClients(db, member[0].organizationId);
-    const parsedResult = await fetchClientsPage(db, member[0].organizationId, page, size);
-
-    return c.json(
-        {
-            message: "Clients fetched",
-            clients: parsedResult,
-            // meta: {
-            //     total,
-            //     page,
-            //     size,
-            //     totalPages: Math.ceil(total / size),
-            // },
-        },
-        200,
-    );
-});
+        return c.json(
+            {
+                message: "Clients fetched",
+                clients: result.data,
+                meta: result.meta,
+            },
+            200,
+        );
+    },
+);
 
 clientRouteV1.get("/:id", async (c) => {
     const id = c.req.param("id");
     const db = c.get("db");
 
-    const pageStr = c.req.query("page");
-    const sizeStr = c.req.query("size");
-
-    let page = parseInt(pageStr ?? "1", 10);
-    if (Number.isNaN(page) || page < 1) page = 1;
-
-    let size = parseInt(sizeStr ?? "10", 10);
-    if (Number.isNaN(size) || size < 1) size = 10;
-
-    const MAX_SIZE = 100;
-    size = Math.min(size, MAX_SIZE);
-
     const client = await getClientById(db, id);
-    if (!client) return c.json("Client not found", 404);
+    if (!client) return c.json({ message: "Client not found" }, 404);
 
-    const total = await countClientInvoices(db, client.id);
-    const invoicesResult = await fetchClientInvoicesPage(db, client.id, page, size);
-
-    return c.json(
-        {
-            clientInfo: client,
-            invoices: invoicesResult,
-            meta: {
-                total,
-                page,
-                size,
-                totalPages: Math.ceil(total / size),
-            },
-        },
-        200,
-    );
+    return c.json({ message: "Client fetched successfully", client }, 200);
 });
+
+// Get client invoices
+clientRouteV1.get(
+    "/:id/invoices",
+    zValidator("query", ClientQuerySchema, (result, c) => {
+        return handleZodValidate(result, c);
+    }),
+    async (c) => {
+        const db = c.get("db");
+        const id = c.req.param("id");
+        const query = c.req.valid("query");
+
+        const result = await fetchClientInvoicesPage(db, id, query.page, query.size);
+
+        return c.json(
+            {
+                message: "Client invoices fetched",
+                invoices: result.data,
+                meta: result.meta,
+            },
+            200,
+        );
+    },
+);
 
 clientRouteV1.post(
     "/create",
@@ -107,18 +87,15 @@ clientRouteV1.post(
     async (c) => {
         const data = c.req.valid("json");
         const db = c.get("db");
-        const jwtPayload = c.get("jwtPayload");
+        const jwt = c.get("jwtPayload");
 
-        const member = await getOrganizationMember(db, jwtPayload.userId);
-        if (member.length == 0) return c.json("User is not part of an organization", 400);
-
-        const parsedClient = await createClientRecord(db, data, member[0].organizationId);
+        const parsedClient = await createClientRecord(db, data, jwt.currentOrgId);
 
         return c.json({ message: "Client created", client: parsedClient }, 200);
     },
 );
 
-clientRouteV1.delete("/delete/:id", async (c) => {
+clientRouteV1.delete("/:id/delete", async (c) => {
     const db = c.get("db");
     const id = c.req.param("id");
 
@@ -128,7 +105,7 @@ clientRouteV1.delete("/delete/:id", async (c) => {
 });
 
 clientRouteV1.put(
-    "/edit/:id",
+    "/:id/edit",
     zValidator("json", ClientFormSchema, (result, c) => {
         return handleZodValidate(result, c);
     }),
@@ -143,15 +120,13 @@ clientRouteV1.put(
     },
 );
 
+// TODO
 clientRouteV1.post("/search", async (c) => {
     const db = c.get("db");
     const data = await c.req.json();
-    const jwtPayload = c.get("jwtPayload");
+    const jwt = c.get("jwtPayload");
 
-    const member = await getOrganizationMember(db, jwtPayload.userId);
-    if (member.length == 0) return c.json("User is not part of an organization", 400);
-
-    const result = await searchClientsByName(db, member[0].organizationId, data.query);
+    const result = await searchClientsByName(db, jwt.currentOrgId, data.query);
 
     return c.json({ data: result }, 200);
 });

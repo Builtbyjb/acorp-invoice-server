@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { MAX_IMAGE_SIZE, ACCEPTED_IMAGE_TYPES } from "./constants";
+import { MAX_IMAGE_SIZE, ACCEPTED_IMAGE_TYPES } from "../constants";
 
 export const UserSchema = z.object({
     firstname: z.string(),
@@ -42,75 +42,6 @@ export const BusinessSettingsSchema = z.object({
     email: z.string(),
     // phone: z.string(),
     website: z.string().optional(),
-    address: z.string(),
-    city: z.string(),
-    country: z.string(),
-});
-
-/* Invoice Zod Schemas */
-export const InvoiceStatusSchema = z.enum(["draft", "sent", "paid", "overdue"]);
-
-export const InvoiceFormSchema = z.object({
-    clientId: z.string().optional(),
-    issueDate: z.coerce.date(),
-    dueDate: z.coerce.date(),
-    discount: z.number().min(0).max(100),
-    taxRate: z.number().min(0).max(100),
-    status: InvoiceStatusSchema,
-    signature: z.string().optional(),
-    items: z.array(
-        z.object({
-            description: z.string(),
-            quantity: z.number().positive(),
-            unitPrice: z.number().positive(),
-        }),
-    ),
-    currency: z.string(),
-    notes: z.string(),
-    paymentDate: z.coerce.date().optional().nullable(),
-});
-
-export const InvoiceItemSchema = z.object({
-    description: z.string(),
-    quantity: z.number(),
-    unitPrice: z.number(),
-});
-
-export const InvoiceSchema = z.object({
-    id: z.string(),
-    invoiceNumber: z.string(),
-    clientId: z.string(),
-    items: z.array(InvoiceItemSchema),
-    taxRate: z.number(),
-    discount: z.number(),
-    status: InvoiceStatusSchema,
-    signature: z.string().nullable(),
-    issueDate: z.string(),
-    dueDate: z.string(),
-    currency: z.string(),
-    notes: z.string(),
-    createdAt: z.string(),
-});
-
-/* Client Zod Schemas */
-export const ClientSchema = z.object({
-    id: z.string(),
-    organizationId: z.number(),
-    name: z.string(),
-    email: z.string().email(),
-    phone: z.string(),
-    address: z.string(),
-    city: z.string(),
-    country: z.string(),
-    createdAt: z.coerce.date(),
-});
-
-export const ClientListSchema = z.array(ClientSchema);
-
-export const ClientFormSchema = z.object({
-    name: z.string().nonempty(),
-    email: z.string().email(),
-    phone: z.string(),
     address: z.string(),
     city: z.string(),
     country: z.string(),

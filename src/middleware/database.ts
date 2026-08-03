@@ -3,7 +3,10 @@ import { drizzle, NodePgDatabase } from "drizzle-orm/node-postgres";
 import { Client } from "pg";
 import { ENV } from "@/lib/types";
 
-export default function injectDb(): MiddlewareHandler<{ Bindings: ENV; Variables: { db: NodePgDatabase } }> {
+export default function injectDb(): MiddlewareHandler<{
+    Bindings: ENV;
+    Variables: { db: NodePgDatabase };
+}> {
     return async (c, next) => {
         const connectionString = c.env.DB.connectionString;
 

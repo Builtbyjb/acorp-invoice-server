@@ -1,5 +1,14 @@
-import { boolean, integer, jsonb, numeric, PgInteger, pgTable, timestamp, varchar } from "drizzle-orm/pg-core";
-import type { InvoiceNumber, InvoiceItem } from "@/lib/types";
+import {
+    boolean,
+    integer,
+    jsonb,
+    numeric,
+    PgInteger,
+    pgTable,
+    timestamp,
+    varchar,
+} from "drizzle-orm/pg-core";
+import type { InvoiceNumber, InvoiceItem, InvoiceClientInfo } from "@/lib/types/invoice-types";
 
 export const users = pgTable("users", {
     id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
@@ -24,7 +33,10 @@ export const organizations = pgTable("organizations", {
     country: varchar("country"),
     website: varchar("website"),
     logoURL: varchar("logo_url"),
-    invoiceNumber: jsonb("invoice_number").$type<InvoiceNumber>().notNull().default({ currentNumber: 0, year: 2000 }),
+    invoiceNumber: jsonb("invoice_number")
+        .$type<InvoiceNumber>()
+        .notNull()
+        .default({ currentNumber: 0, year: 2000 }),
     referralCode: varchar("referral_code").unique(),
     referredBy: integer("referred_by")
         .references((): PgInteger => organizations.id)
@@ -87,6 +99,7 @@ export const invoices = pgTable("invoices", {
         .references(() => clients.id)
         .notNull(),
     clientName: varchar("client_name").notNull(),
+    clientInfo: jsonb("client_info").$type<InvoiceClientInfo>().notNull(),
     issueDate: timestamp("issue_date", { withTimezone: true }).notNull(),
     dueDate: timestamp("due_date", { withTimezone: true }).notNull(),
     status: varchar("status").notNull(),

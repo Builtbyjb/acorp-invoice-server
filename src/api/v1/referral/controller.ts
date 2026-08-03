@@ -65,7 +65,9 @@ referralRouteV1.get("/details", async (c) => {
         totalEarnings: organization.totalEarnings,
         payout,
         currency,
-        payoutMethod: organization.referralPayoutMethod ? JSON.parse(organization.referralPayoutMethod) : null,
+        payoutMethod: organization.referralPayoutMethod
+            ? JSON.parse(organization.referralPayoutMethod)
+            : null,
     };
 
     return c.json({ message: "Referral details fetched successfully", data }, 200);
@@ -85,7 +87,9 @@ referralRouteV1.post(
             const organization = await db
                 .select()
                 .from(organizations)
-                .where(and(eq(organizations.id, jwt.currentOrgId), eq(organizations.deleted, false)))
+                .where(
+                    and(eq(organizations.id, jwt.currentOrgId), eq(organizations.deleted, false)),
+                )
                 .then((result) => result[0]);
 
             if (!organization) return c.json({ message: "Organization not found" }, 404);

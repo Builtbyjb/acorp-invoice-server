@@ -2,7 +2,8 @@
   "name": "acorp-invoice-server",
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev --env dev",
+    "dev": "node scripts/dev.js",
+    "migrate": "node scripts/migrate.js",
     "deploy": "wrangler deploy --minify",
     "cf-typegen": "wrangler types --env-interface CloudflareBindings"
   },

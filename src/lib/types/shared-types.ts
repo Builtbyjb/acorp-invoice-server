@@ -7,7 +7,13 @@ export type ENV = {
     OTP_EMAIL: string;
     JWT_SECRET: string;
     SEND_EMAIL: {
-        send: (email: { to: string; from: string; subject: string; text: string; html?: string }) => Promise<any>;
+        send: (email: {
+            to: string;
+            from: string;
+            subject: string;
+            text: string;
+            html?: string;
+        }) => Promise<any>;
     };
     ENV: string;
     INVOICE_URL: string;
@@ -45,27 +51,6 @@ export class ErrorResult extends Error {
     }
 }
 
-export type Client = typeof clients.$inferSelect;
-export type Invoice = typeof invoices.$inferSelect;
-
-export type InvoiceNumber = {
-    year: number;
-    currentNumber: number;
-};
-
-export type InvoiceItem = {
-    description: string;
-    quantity: number;
-    unitPrice: number;
-};
-
-export type InvoiceStatus = "draft" | "sent" | "paid" | "overdue";
-
-export type InvoiceStatusData = {
-    status: InvoiceStatus;
-    count: number;
-};
-
 export type MonthlyRevenue = {
     month: string;
     amount: number;
@@ -78,22 +63,6 @@ export type DashboardStats = {
     draftCount: number;
 };
 
-// export type Invoice = {
-//     id: string;
-//     invoiceNumber: string;
-//     clientId: string;
-//     items: InvoiceItem[];
-//     taxRate: number;
-//     discount: number;
-//     status: InvoiceStatus;
-//     signature: string | null;
-//     issueDate: string;
-//     dueDate: string;
-//     currency: string;
-//     notes: string;
-//     createdAt: string;
-// };
-
 export type Dashboard = {
     stats: DashboardStats;
     monthlyRevenues: MonthlyRevenue[];
@@ -102,4 +71,11 @@ export type Dashboard = {
 export type Country = {
     name: string;
     currency: string;
+};
+
+export type PaginationMetadata = {
+    totalCount: number;
+    totalPages: number;
+    currentPage: number;
+    perPage: number;
 };

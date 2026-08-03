@@ -20,6 +20,6 @@ subprocess2.stderr.on("data", (data) => {
 });
 
 process.on("SIGINT", () => {
-    console.log("Cleaning up");
+    console.log("Clean up");
     execSync("docker compose down");
 });

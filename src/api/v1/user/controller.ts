@@ -8,7 +8,12 @@ import { getMonthlyRevenues } from "./service";
 import authMiddleware from "@/middleware/authentication";
 import { zValidator } from "@hono/zod-validator";
 import { getBlobURL, getCurrentYear, handleZodValidate } from "@/lib/utils";
-import { UserSchema, BusinessSchema, FeedbackSchema, DashboardRevenueQuerySchema } from "@/lib/zod-schema";
+import {
+    UserSchema,
+    BusinessSchema,
+    FeedbackSchema,
+    DashboardRevenueQuerySchema,
+} from "@/lib/zod-schema/shared-zod-schema";
 
 const userRouteV1 = new Hono<{
     Bindings: ENV;
@@ -22,7 +27,10 @@ userRouteV1.get("/dashboard/stats", async (c) => {
     const jwtPayload = c.get("jwtPayload");
 
     const data: DashboardStats = await db.transaction(async (tx) => {
-        const baseFilters = and(eq(invoices.organizationId, jwtPayload.currentOrgId), eq(invoices.deleted, false));
+        const baseFilters = and(
+            eq(invoices.organizationId, jwtPayload.currentOrgId),
+            eq(invoices.deleted, false),
+        );
 
         const [paidResult, sentResult, overdueResult, draftResult] = await Promise.all([
             tx

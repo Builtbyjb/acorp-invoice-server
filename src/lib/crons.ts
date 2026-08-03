@@ -24,21 +24,25 @@ export async function invoiceNotify(env: ENV): Promise<any> {
         const allUsers = await db.select().from(users).where(eq(users.deleted, false));
 
         for (const user of allUsers) {
-            const organization = await db.select().from(organizations).where(eq(organizations.id, user.currentOrgId)).get();
+            const organization = await db
+                .select()
+                .from(organizations)
+                .where(eq(organizations.id, user.currentOrgId));
+
             if (!organization) continue;
-
-            const provider = (organization.paymentProvider || "paystack") as "paystack" | "stripe";
-            const customerId = provider === "paystack" ? organization.paystackCustomerId : organization.stripeCustomerId;
-
-            if (!customerId) continue;
 
             const allClients = await db
                 .select()
                 .from(clients)
-                .where(and(eq(clients.deleted, false), eq(clients.organizationId, user.currentOrgId)));
+                .where(
+                    and(eq(clients.deleted, false), eq(clients.organizationId, user.currentOrgId)),
+                );
 
             for (const client of allClients) {
-                const allInvoices = await db.select().from(invoices).where(eq(invoices.clientId, client.id));
+                const allInvoices = await db
+                    .select()
+                    .from(invoices)
+                    .where(eq(invoices.clientId, client.id));
 
                 for (const invoice of allInvoices) {
                     if (invoice.notified) continue;
@@ -52,7 +56,10 @@ export async function invoiceNotify(env: ENV): Promise<any> {
                                 text: `Invoice ${invoice.invoiceNumber} for ${client.name} is overdue. Consider sending a payment reminder.`,
                             });
 
-                            await db.update(invoices).set({ notified: true }).where(eq(invoices.id, invoice.id));
+                            await db
+                                .update(invoices)
+                                .set({ notified: true })
+                                .where(eq(invoices.id, invoice.id));
                         }
                     }
                 }
@@ -70,7 +77,6 @@ async function createPaystackRecipient(bankDetails: any, env: ENV): Promise<stri
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                Authorization: `Bearer ${env.PAYSTACK_SECRET}`,
             },
             body: JSON.stringify({
                 type: "nuban",
@@ -94,85 +100,5 @@ async function createPaystackRecipient(bankDetails: any, env: ENV): Promise<stri
 
 /* Handles referral rewards payout processing */
 export async function payout(env: ENV): Promise<any> {
-    const { db, client } = await getDb(env);
-
-    try {
-        const referrers = await db
-            .select()
-            .from(organizations)
-            .where(and(eq(organizations.referralEnabled, true), eq(organizations.deleted, false)));
-
-        for (const referrer of referrers) {
-            if (!referrer.referralPayoutMethod) continue;
-
-            const currency = referrer.currency || "NGN";
-            const subAmount = getSubscriptionAmount(currency);
-            const provider = (referrer.paymentProvider || "paystack") as "paystack" | "stripe";
-
-            const activeReferrals = await db.$count(
-                organizations,
-                and(
-                    eq(organizations.referredBy, referrer.id),
-                    sql`(
-                        ${organizations.paystackSubscriptionStatus} = 'active'
-                        OR ${organizations.stripeSubscriptionStatus} = 'active'
-                    )`,
-                    eq(organizations.deleted, false),
-                ),
-            );
-
-            if (activeReferrals === 0) continue;
-
-            const payoutAmount = Math.round(activeReferrals * subAmount * REWARD);
-            if (payoutAmount <= 0) continue;
-
-            const payoutRecord = await db
-                .insert(payouts)
-                .values({
-                    organizationId: referrer.id,
-                    amount: payoutAmount,
-                    currency,
-                    status: "pending",
-                    provider,
-                })
-                .returning()
-                .get();
-
-            try {
-                const bankDetails = JSON.parse(referrer.referralPayoutMethod);
-                let reference: string | null = null;
-
-                if (provider === "paystack") {
-                    const recipientCode = await createPaystackRecipient(bankDetails, env);
-                    if (recipientCode) {
-                        // Transfer logic placeholder
-                    }
-                } else {
-                    if (bankDetails.connectedAccountId) {
-                        // Stripe Connect payout placeholder
-                    }
-                }
-
-                await db
-                    .update(payouts)
-                    .set({
-                        status: reference ? "processing" : "pending",
-                        reference: reference || null,
-                    })
-                    .where(eq(payouts.id, payoutRecord.id));
-
-                await db
-                    .update(organizations)
-                    .set({
-                        totalEarnings: sql`${organizations.totalEarnings} + ${payoutAmount}`,
-                    })
-                    .where(eq(organizations.id, referrer.id));
-            } catch (error) {
-                console.error(`Payout failed for organization ${referrer.id}:`, error);
-                await db.update(payouts).set({ status: "failed" }).where(eq(payouts.id, payoutRecord.id));
-            }
-        }
-    } finally {
-        await client.end();
-    }
+    // TODO:
 }
