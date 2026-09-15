@@ -1,5 +1,5 @@
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
-import { eq, and, like, desc } from "drizzle-orm";
+import { eq, and, ilike, desc } from "drizzle-orm";
 import { clients, invoices } from "@/db/schema";
 // import { members } from "@/db/schema";
 import { ClientListSchema, ClientSchema } from "@/lib/zod-schema/client-zod-schema";
@@ -10,19 +10,54 @@ import { InvoiceListSchema } from "@/lib/zod-schema/invoice-zod-schema";
 
 export async function fetchClientsPage(
     db: NodePgDatabase,
-    orgId: number,
+    orgID: number,
     page: number,
     size: number,
 ): Promise<FetchedClients> {
-    const baseWhere = and(eq(clients.organizationId, orgId), eq(clients.deleted, false));
+    const baseWhere = and(eq(clients.organizationID, orgID), eq(clients.deleted, false));
     const limit = Math.min(size, MAX_PAGE_SIZE);
     const offset = (page - 1) * limit;
 
     const [totalCount, result] = await Promise.all([
-        // Total count
         db.$count(clients, baseWhere),
+        db
+            .select()
+            .from(clients)
+            .where(baseWhere)
+            .orderBy(desc(clients.createdAt))
+            .limit(limit)
+            .offset(offset),
+    ]);
 
-        // Clients result
+    return {
+        data: ClientListSchema.parse(result),
+        meta: {
+            totalCount: totalCount,
+            totalPages: Math.ceil(totalCount / limit),
+            currentPage: page,
+            perPage: limit,
+        },
+    };
+}
+
+export async function findClientsByName(
+    db: NodePgDatabase,
+    orgID: number,
+    name: string,
+    page: number,
+    size: number,
+): Promise<FetchedClients> {
+    const limit = Math.min(size, MAX_PAGE_SIZE);
+    const offset = (page - 1) * limit;
+
+    const baseWhere = and(
+        eq(clients.organizationID, orgID),
+        eq(clients.deleted, false),
+        ilike(clients.name, `%${name}%`),
+    );
+
+    const [totalCount, result] = await Promise.all([
+        db.$count(clients, baseWhere),
         db
             .select()
             .from(clients)
@@ -56,19 +91,16 @@ export async function getClientById(db: NodePgDatabase, id: string): Promise<Cli
 
 export async function fetchClientInvoicesPage(
     db: NodePgDatabase,
-    clientId: string,
+    clientID: string,
     page: number,
     size: number,
 ): Promise<FetchedInvoices> {
-    const baseWhere = and(eq(invoices.clientId, clientId), eq(invoices.deleted, false));
+    const baseWhere = and(eq(invoices.clientID, clientID), eq(invoices.deleted, false));
     const limit = Math.min(size, MAX_PAGE_SIZE);
     const offset = (page - 1) * limit;
 
     const [totalCount, result] = await Promise.all([
-        // Total client invoices count
         db.$count(invoices, baseWhere),
-
-        // Total client invoices
         db
             .select()
             .from(invoices)
@@ -99,13 +131,13 @@ export async function createClientRecord(
         city?: string;
         country?: string;
     },
-    orgId: number,
+    orgID: number,
 ) {
-    const client = await db
+    const result = await db
         .insert(clients)
         .values({
             id: crypto.randomUUID(),
-            organizationId: orgId,
+            organizationID: orgID,
             name: data.name,
             email: data.email,
             phone: data.phone,
@@ -113,10 +145,11 @@ export async function createClientRecord(
             city: data.city,
             country: data.country,
         })
-        .returning()
-        .then((result) => result[0]);
+        .returning();
 
-    return ClientSchema.parse(client);
+    if (result.length === 0) return null;
+
+    return ClientSchema.parse(result[0]);
 }
 
 export async function softDeleteClient(db: NodePgDatabase, id: string) {
@@ -135,7 +168,7 @@ export async function updateClientRecord(
         country?: string;
     },
 ) {
-    await db
+    const result = await db
         .update(clients)
         .set({
             name: data.name,
@@ -145,18 +178,10 @@ export async function updateClientRecord(
             city: data.city,
             country: data.country,
         })
-        .where(eq(clients.id, id));
-}
+        .where(eq(clients.id, id))
+        .returning();
 
-export async function searchClientsByName(db: NodePgDatabase, orgId: number, query: string) {
-    return db
-        .select()
-        .from(clients)
-        .where(
-            and(
-                eq(clients.organizationId, orgId),
-                like(clients.name, `%${query}%`),
-                eq(clients.deleted, false),
-            ),
-        );
+    if (result.length === 0) return null;
+
+    return ClientSchema.parse(result[0]);
 }

@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
-import { ENV } from "@/lib/types";
+import { ENV } from "@/lib/types/shared-types";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { DrizzleQueryError, eq } from "drizzle-orm";
 import { members, organizations, users } from "@/db/schema";
@@ -11,8 +11,8 @@ import {
     handleZodValidate,
     getTokenFromHeader,
 } from "@/lib/utils";
-import type { Country, TokenPayload, BaseTokenPayload } from "@/lib/types";
-import { ErrorResult } from "@/lib/types";
+import type { Country, TokenPayload, BaseTokenPayload } from "@/lib/types/shared-types";
+import { ErrorResult } from "@/lib/types/shared-types";
 import { getAccessTokenExp, getRefreshTokenExp } from "@/lib/constants";
 import { signinSchema, otpSchema, signupSchema, refreshSchema } from "./zod-schema";
 import {
@@ -52,10 +52,10 @@ authRouteV1.post(
         if (otp instanceof Error) return c.json({ message: "Internal server error" }, 500);
 
         const payload: TokenPayload = {
-            userId: user.id,
+            userID: user.id,
             email: user.email,
             firstname: user.firstname,
-            currentOrgId: user.currentOrgId,
+            currentOrgID: user.currentOrgID,
             otp: otp,
             exp: getAccessTokenExp(),
         };
@@ -114,7 +114,7 @@ authRouteV1.post(
                     email: data.email,
                     firstname: data.firstname,
                     lastname: data.lastname,
-                    currentOrgId: organization.id,
+                    currentOrgID: organization.id,
                 })
                 .returning({ id: users.id, email: users.email, firstname: users.firstname })
                 .then((result) => result[0]);
@@ -125,9 +125,9 @@ authRouteV1.post(
             member = await db
                 .insert(members)
                 .values({
-                    userId: user.id,
-                    organizationId: organization.id,
-                    roleId: 1,
+                    userID: user.id,
+                    organizationID: organization.id,
+                    roleID: 1,
                 })
                 .returning({ id: members.id })
                 .then((result) => result[0]);
@@ -136,10 +136,10 @@ authRouteV1.post(
             if (otp instanceof Error) return c.json({ message: "Internal server error" }, 500);
 
             const payload: TokenPayload = {
-                userId: user.id,
+                userID: user.id,
                 email: user.email,
                 firstname: user.firstname,
-                currentOrgId: organization.id,
+                currentOrgID: organization.id,
                 otp: otp,
                 exp: getAccessTokenExp(),
             };
@@ -181,10 +181,10 @@ authRouteV1.post(
         if (parsed.otp !== code) return c.json({ message: "Invalid OTP" }, 400);
 
         const basePayload: BaseTokenPayload = {
-            userId: parsed.userId,
+            userID: parsed.userID,
             firstname: parsed.firstname,
             email: parsed.email,
-            currentOrgId: parsed.currentOrgId,
+            currentOrgID: parsed.currentOrgID,
         };
 
         const accessPayload: TokenPayload = {
@@ -229,10 +229,10 @@ authRouteV1.post(
         if (parsed instanceof ErrorResult) return c.json({ message: parsed.message }, parsed.code);
 
         const basePayload: BaseTokenPayload = {
-            userId: parsed.userId,
+            userID: parsed.userID,
             firstname: parsed.firstname,
             email: parsed.email,
-            currentOrgId: parsed.currentOrgId,
+            currentOrgID: parsed.currentOrgID,
         };
 
         const accessPayload: TokenPayload = { ...basePayload, exp: getAccessTokenExp() };

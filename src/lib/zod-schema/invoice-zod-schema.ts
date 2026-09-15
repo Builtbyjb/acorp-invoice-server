@@ -1,10 +1,10 @@
 import { z } from "zod";
 
 export const InvoiceQuerySchema = z.object({
-    clientId: z.string().optional(),
-    invoiceId: z.string().optional(),
-    page: z.string().optional(),
-    size: z.string().optional(),
+    clientID: z.string().optional(),
+    invoiceID: z.string().optional(),
+    page: z.number().optional().default(1),
+    size: z.number().optional().default(10),
 });
 
 export const ClientInfoSchema = z.object({
@@ -17,11 +17,12 @@ export const ClientInfoSchema = z.object({
 
 export const InvoiceStatusSchema = z.enum(["draft", "sent", "paid", "overdue"]);
 
-const InvoiceItemSchema = z.object({
+export const InvoiceItemSchema = z.object({
     id: z.string(),
     description: z.string(),
     quantity: z.number(),
-    unitPrice: z.number(),
+    unit: z.string(),
+    price: z.number(),
 });
 
 export const InvoiceFormSchema = z.object({
@@ -34,7 +35,7 @@ export const InvoiceFormSchema = z.object({
     items: z.array(InvoiceItemSchema),
     currency: z.string(),
     notes: z.string(),
-    signature: z.string().nullable(),
+    signature: z.string().optional(),
 });
 
 export const InvoiceSchema = z.object({
@@ -42,10 +43,10 @@ export const InvoiceSchema = z.object({
     invoiceNumber: z.string(),
     clientID: z.string(),
     clientName: z.string(),
-    ClientInfo: ClientInfoSchema,
+    clientInfo: ClientInfoSchema,
     items: z.array(InvoiceItemSchema),
-    taxRate: z.number(),
-    discount: z.number(),
+    taxRate: z.coerce.number(),
+    discount: z.coerce.number(),
     status: InvoiceStatusSchema,
     signature: z.string().nullable(),
     issueDate: z.coerce.date(),

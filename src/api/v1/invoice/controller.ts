@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { ENV, TokenPayload } from "@/lib/types/shared-types";
-import type { Invoice } from "@/lib/types/invoice-types";
+import type { FetchedInvoices, Invoice } from "@/lib/types/invoice-types";
 import { zValidator } from "@hono/zod-validator";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { InvoiceFormSchema } from "@/lib/zod-schema/invoice-zod-schema";
@@ -8,15 +8,14 @@ import planAccessMiddleware from "@/middleware/plan-access";
 import authMiddleware from "@/middleware/authentication";
 import { handleZodValidate } from "@/lib/utils";
 import {
-    getOrganizationMember,
     fetchOrgInvoicesPage,
-    getClientInvoices,
     getInvoiceById,
     createInvoiceRecord,
     updateInvoiceRecord,
     softDeleteInvoice,
 } from "./service";
 import { InvoiceQuerySchema } from "@/lib/zod-schema/invoice-zod-schema";
+import { fetchClientInvoicesPage } from "../client/service";
 
 const invoiceRouteV1 = new Hono<{
     Bindings: ENV;
@@ -33,43 +32,30 @@ invoiceRouteV1.get(
     }),
     async (c) => {
         const db = c.get("db");
-        const jwtPayload = c.get("jwtPayload");
+        const jwt = c.get("jwtPayload");
         const query = c.req.valid("query");
 
-        let invoices: Invoice[] = [];
+        let result: FetchedInvoices = {
+            data: [],
+            meta: {
+                totalCount: 0,
+                totalPages: 0,
+                currentPage: 0,
+                perPage: 0,
+            },
+        };
 
-        if (query.clientId && !query.invoiceId) {
-            invoices = await getClientInvoices(db, query.clientId);
-        } else if (!query.clientId && !query.invoiceId) {
-            const member = await getOrganizationMember(db, jwtPayload.userId);
-            if (member.length == 0) return c.json("User is not part of an organization", 400);
-
-            const pageStr = c.req.query("page");
-            const sizeStr = c.req.query("size");
-
-            let page = parseInt(pageStr ?? "1", 10);
-            if (Number.isNaN(page) || page < 1) page = 1;
-
-            let size = parseInt(sizeStr ?? "10", 10);
-            if (Number.isNaN(size) || size < 1) size = 10;
-
-            const MAX_SIZE = 100;
-            size = Math.min(size, MAX_SIZE);
-
-            // const total = await countOrgInvoices(db, member[0].organizationId);
-            invoices = await fetchOrgInvoicesPage(db, member[0].organizationId, page, size);
+        if (query.clientID && !query.invoiceID) {
+            result = await fetchClientInvoicesPage(db, query.clientID, query.page, query.size);
+        } else if (!query.clientID && !query.invoiceID) {
+            result = await fetchOrgInvoicesPage(db, jwt.currentOrgID, query.page, query.size);
         }
 
         return c.json(
             {
                 message: "Invoices fetched",
-                invoices: invoices,
-                // meta: {
-                //     total,
-                //     page,
-                //     size,
-                //     totalPages: Math.ceil(total / size),
-                // },
+                data: result.data,
+                meta: result.meta,
             },
             200,
         );
@@ -96,14 +82,14 @@ invoiceRouteV1.post(
     async (c) => {
         const db = c.get("db");
         const data = c.req.valid("json");
-        const jwtPayload = c.get("jwtPayload");
+        const jwt = c.get("jwtPayload") as TokenPayload;
 
         if (!data.clientID) return c.json({ message: "Client ID is required" }, 400);
 
-        const result = await createInvoiceRecord(db, data, jwtPayload);
-        if (!result) return c.json({ message: "Organization not found" }, 404);
+        const result = await createInvoiceRecord(db, data, jwt.currentOrgID);
+        if (!result) return c.json({ message: "Error creating invoice" }, 404);
 
-        return c.json({ message: "Invoice created", data: result.invoiceId }, 200);
+        return c.json({ message: "Invoice created", data: result }, 200);
     },
 );
 
@@ -113,21 +99,22 @@ invoiceRouteV1.put(
         return handleZodValidate(result, c);
     }),
     async (c) => {
-        const invoiceId = c.req.param("invoiceID");
+        const invoiceID = c.req.param("invoiceID");
         const db = c.get("db");
         const data = c.req.valid("json");
 
-        await updateInvoiceRecord(db, invoiceId, data);
+        const result = await updateInvoiceRecord(db, invoiceID, data);
+        if (!result) return c.json({ message: "Error updating invoices" }, 400);
 
-        return c.json({ message: "Invoice Updated", data: { id: invoiceId } }, 200);
+        return c.json({ message: "Invoice Updated", data: result }, 200);
     },
 );
 
 invoiceRouteV1.delete("/:invoiceID/delete", async (c) => {
-    const invoiceId = c.req.param("invoiceID");
+    const invoiceID = c.req.param("invoiceID");
     const db = c.get("db");
 
-    await softDeleteInvoice(db, invoiceId);
+    await softDeleteInvoice(db, invoiceID);
 
     return c.json({ message: "Invoice deleted" }, 200);
 });

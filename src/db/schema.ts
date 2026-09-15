@@ -13,7 +13,7 @@ import type { InvoiceNumber, InvoiceItem, InvoiceClientInfo } from "@/lib/types/
 export const users = pgTable("users", {
     id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
     email: varchar("email").notNull().unique(),
-    currentOrgId: integer("currency_organization_id")
+    currentOrgID: integer("currency_organization_id")
         .references(() => organizations.id)
         .notNull(),
     firstname: varchar("firstname").notNull(),
@@ -52,13 +52,13 @@ export const organizations = pgTable("organizations", {
 
 export const members = pgTable("members", {
     id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
-    organizationId: integer("organization_id")
+    organizationID: integer("organization_id")
         .references(() => organizations.id)
         .notNull(),
-    userId: integer("user_id")
+    userID: integer("user_id")
         .references(() => users.id)
         .notNull(),
-    roleId: integer("role_id")
+    roleID: integer("role_id")
         .references(() => roles.id)
         .notNull(),
     startDate: timestamp("start_date", { withTimezone: true }).defaultNow(),
@@ -78,7 +78,7 @@ export const roles = pgTable("roles", {
 
 export const clients = pgTable("clients", {
     id: varchar("id").primaryKey(),
-    organizationId: integer("organization_id").references(() => organizations.id),
+    organizationID: integer("organization_id").references(() => organizations.id),
     name: varchar("name").notNull(),
     email: varchar("email"),
     phone: varchar("phone"),
@@ -93,9 +93,9 @@ export const clients = pgTable("clients", {
 
 export const invoices = pgTable("invoices", {
     id: varchar("id").primaryKey(),
-    organizationId: integer("organization_id").references(() => organizations.id),
+    organizationID: integer("organization_id").references(() => organizations.id),
     invoiceNumber: varchar("invoice_number").notNull(),
-    clientId: varchar("client_id")
+    clientID: varchar("client_id")
         .references(() => clients.id)
         .notNull(),
     clientName: varchar("client_name").notNull(),

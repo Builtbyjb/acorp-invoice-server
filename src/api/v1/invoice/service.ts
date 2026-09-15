@@ -3,12 +3,14 @@ import { eq, and, desc, sql } from "drizzle-orm";
 import { clients, invoices } from "@/db/schema";
 import { members, organizations } from "@/db/schema";
 import { getNewInvoiceNumber } from "@/lib/utils";
-import type { TokenPayload } from "@/lib/types/shared-types";
-import type { InvoiceDTO } from "@/lib/types/invoice-types";
-import { InvoiceSchema } from "@/lib/zod-schema/invoice-zod-schema";
+// import type { TokenPayload } from "@/lib/types/shared-types";
+import type { FetchedInvoices, InvoiceDTO, InvoiceForm } from "@/lib/types/invoice-types";
+import { InvoiceListSchema, InvoiceSchema } from "@/lib/zod-schema/invoice-zod-schema";
+import { MAX_PAGE_SIZE } from "@/lib/constants";
+import { getClientById } from "../client/service";
 
-export async function getOrganizationMember(db: NodePgDatabase, userId: number) {
-    return db.select().from(members).where(eq(members.userId, userId));
+export async function getOrganizationMember(db: NodePgDatabase, userID: number) {
+    return db.select().from(members).where(eq(members.userID, userID));
 }
 
 export async function getOrganizationById(db: NodePgDatabase, orgId: number) {
@@ -19,55 +21,36 @@ export async function getOrganizationById(db: NodePgDatabase, orgId: number) {
         .then((result) => result[0]);
 }
 
-export async function countOrgInvoices(db: NodePgDatabase, orgId: number) {
-    const baseWhere = and(
-        eq(clients.organizationId, orgId),
-        eq(clients.deleted, false),
-        eq(invoices.deleted, false),
-    );
-
-    const countResult = await db
-        .select({ count: sql<number>`count(*)` })
-        .from(invoices)
-        .innerJoin(clients, eq(invoices.clientId, clients.id))
-        .where(baseWhere)
-        .then((result) => result[0]);
-
-    return countResult?.count ?? 0;
-}
-
 export async function fetchOrgInvoicesPage(
     db: NodePgDatabase,
     orgId: number,
     page: number,
     size: number,
-) {
-    const baseWhere = and(
-        eq(clients.organizationId, orgId),
-        eq(clients.deleted, false),
-        eq(invoices.deleted, false),
-    );
+): Promise<FetchedInvoices> {
+    const baseWhere = and(eq(invoices.organizationID, orgId), eq(invoices.deleted, false));
+    const limit = Math.min(size, MAX_PAGE_SIZE);
+    const offset = (page - 1) * limit;
 
-    const offset = (page - 1) * size;
+    const [totalCount, result] = await Promise.all([
+        db.$count(invoices, baseWhere),
+        db
+            .select()
+            .from(invoices)
+            .where(baseWhere)
+            .orderBy(desc(invoices.createdAt))
+            .limit(size)
+            .offset(offset),
+    ]);
 
-    const result = await db
-        .select()
-        .from(invoices)
-        .innerJoin(clients, eq(invoices.clientId, clients.id))
-        .where(baseWhere)
-        .orderBy(desc(invoices.createdAt))
-        .limit(size)
-        .offset(offset);
-
-    return result.map((r) => r.invoices);
-}
-
-export async function getClientInvoices(db: NodePgDatabase, clientId: string) {
-    return db
-        .select()
-        .from(invoices)
-        .where(and(eq(invoices.clientId, clientId), eq(invoices.deleted, false)))
-        .orderBy(desc(invoices.createdAt));
+    return {
+        data: InvoiceListSchema.parse(result),
+        meta: {
+            totalCount,
+            totalPages: Math.ceil(totalCount / limit),
+            currentPage: page,
+            perPage: limit,
+        },
+    };
 }
 
 export async function getInvoiceById(db: NodePgDatabase, id: string): Promise<InvoiceDTO | null> {
@@ -81,26 +64,38 @@ export async function getInvoiceById(db: NodePgDatabase, id: string): Promise<In
     return InvoiceSchema.parse(result[0]);
 }
 
-export async function createInvoiceRecord(db: NodePgDatabase, data: any, jwtPayload: TokenPayload) {
-    const organization = await getOrganizationById(db, jwtPayload.currentOrgId);
+export async function createInvoiceRecord(
+    db: NodePgDatabase,
+    data: InvoiceForm,
+    orgID: number,
+): Promise<InvoiceDTO | null> {
+    if (!data.clientID) return null;
+
+    const [organization, client] = await Promise.all([
+        getOrganizationById(db, orgID),
+        getClientById(db, data.clientID),
+    ]);
+
     if (!organization) return null;
+    if (!client) return null;
 
     const newInvoiceNumber = getNewInvoiceNumber(organization.invoiceNumber);
     const invoiceNumber = "INV-" + newInvoiceNumber.year + "-" + newInvoiceNumber.currentNumber;
 
-    const invoiceId = await db
+    const invoice = await db
         .insert(invoices)
         .values({
             id: crypto.randomUUID(),
+            organizationID: organization.id,
             invoiceNumber: invoiceNumber,
-            clientId: data.clientId,
-            clientName: data.clientName,
+            clientID: data.clientID,
+            clientName: client.name,
             clientInfo: {
-                email: "",
-                phone: "",
-                address: "",
-                city: "",
-                country: "",
+                email: client.email,
+                phone: client.phone,
+                address: client.address,
+                city: client.city,
+                country: client.country,
             },
             issueDate: data.issueDate,
             dueDate: data.dueDate,
@@ -111,23 +106,24 @@ export async function createInvoiceRecord(db: NodePgDatabase, data: any, jwtPayl
             items: data.items,
             notes: data.notes,
             currency: data.currency,
-            paymentDate:
-                data.status === "paid" && !data.paymentDate
-                    ? new Date()
-                    : (data.paymentDate ?? null),
+            paymentDate: null,
         })
-        .returning({ id: invoices.id });
+        .returning();
 
     await db
         .update(organizations)
         .set({ invoiceNumber: newInvoiceNumber })
-        .where(eq(organizations.id, jwtPayload.currentOrgId));
+        .where(eq(organizations.id, orgID));
 
-    return { invoiceId, invoiceNumber };
+    return InvoiceSchema.parse(invoice[0]);
 }
 
-export async function updateInvoiceRecord(db: NodePgDatabase, invoiceId: string, data: any) {
-    await db
+export async function updateInvoiceRecord(
+    db: NodePgDatabase,
+    invoiceID: string,
+    data: InvoiceForm,
+) {
+    const result = await db
         .update(invoices)
         .set({
             issueDate: data.issueDate,
@@ -139,12 +135,13 @@ export async function updateInvoiceRecord(db: NodePgDatabase, invoiceId: string,
             signature: data.signature,
             notes: data.notes,
             currency: data.currency,
-            paymentDate:
-                data.status === "paid" && !data.paymentDate
-                    ? new Date()
-                    : (data.paymentDate ?? null),
         })
-        .where(eq(invoices.id, invoiceId));
+        .where(and(eq(invoices.id, invoiceID), eq(invoices.deleted, false)))
+        .returning();
+
+    if (result.length === 0) return null;
+
+    return InvoiceSchema.parse(result[0]);
 }
 
 export async function softDeleteInvoice(db: NodePgDatabase, invoiceId: string) {

@@ -12,7 +12,7 @@ export const ClientFormSchema = z.object({
 
 export const ClientSchema = z.object({
     id: z.string(),
-    organizationId: z.number(),
+    organizationID: z.number(),
     name: z.string(),
     email: z.string().email(),
     phone: z.string(),
@@ -26,6 +26,7 @@ export const ClientSchema = z.object({
 export const ClientListSchema = z.array(ClientSchema);
 
 export const ClientQuerySchema = z.object({
+    name: z.string().optional(),
     page: z.number().optional().default(1),
     size: z.number().optional().default(10),
 });

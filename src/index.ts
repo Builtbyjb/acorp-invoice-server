@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { ENV } from "./lib/types";
+import { ENV } from "@/lib/types/shared-types";
 import { invoiceNotify, payout } from "./lib/crons";
 import rateLimiterMiddleware from "./middleware/rate-limiter";
 import injectDb from "./middleware/database";

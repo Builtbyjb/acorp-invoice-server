@@ -170,5 +170,5 @@ export const COUNTRIES: Country[] = [
     { name: "Venezuela", currency: "VES" },
     { name: "Vietnam", currency: "VND" },
     { name: "Zambia", currency: "ZMW" },
-    { name: "Zimbabwe", currency: "ZiG" },
+    { name: "Zimbabwe", currency: "ZWG" },
 ];

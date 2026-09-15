@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import type { ENV, TokenPayload, DashboardStats, MonthlyRevenue } from "@/lib/types";
+import type { ENV, TokenPayload, DashboardStats, MonthlyRevenue } from "@/lib/types/shared-types";
 import { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { eq, and, count, sql } from "drizzle-orm";
 import { invoices } from "@/db/schema";
@@ -28,7 +28,7 @@ userRouteV1.get("/dashboard/stats", async (c) => {
 
     const data: DashboardStats = await db.transaction(async (tx) => {
         const baseFilters = and(
-            eq(invoices.organizationId, jwtPayload.currentOrgId),
+            eq(invoices.organizationID, jwtPayload.currentOrgID),
             eq(invoices.deleted, false),
         );
 
@@ -77,7 +77,7 @@ userRouteV1.get(
         const organization = await db
             .select({ currency: organizations.currency })
             .from(organizations)
-            .where(eq(organizations.id, jwtPayload.currentOrgId))
+            .where(eq(organizations.id, jwtPayload.currentOrgID))
             .then((result) => result[0]);
 
         if (!organization) return c.json({ message: "Organization not found" }, 404);
@@ -95,7 +95,7 @@ userRouteV1.get(
             .from(invoices)
             .where(
                 and(
-                    eq(invoices.organizationId, jwtPayload.currentOrgId),
+                    eq(invoices.organizationID, jwtPayload.currentOrgID),
                     eq(invoices.deleted, false),
                     eq(invoices.status, "paid"),
                     eq(invoices.currency, currency),
@@ -118,14 +118,14 @@ userRouteV1.get("/settings", async (c) => {
     const user = await db
         .select()
         .from(users)
-        .where(eq(users.id, jwtPayload.userId))
+        .where(eq(users.id, jwtPayload.userID))
         .then((result) => result[0]);
     if (!user) return c.json({ message: "User not found" }, 404);
 
     const organization = await db
         .select()
         .from(organizations)
-        .where(eq(organizations.id, jwtPayload.currentOrgId))
+        .where(eq(organizations.id, jwtPayload.currentOrgID))
         .then((result) => result[0]);
 
     if (!organization) return c.json({ message: "User organization not found" }, 404);
@@ -173,7 +173,7 @@ userRouteV1.put(
         await db
             .update(users)
             .set({ avatarURL: blobURL || users.avatarURL, firstname: data.firstname })
-            .where(eq(users.id, jwtPayload.userId));
+            .where(eq(users.id, jwtPayload.userID));
 
         return c.json({ message: "User profile updated" }, 200);
     },
@@ -211,7 +211,7 @@ userRouteV1.put(
                 country: data.country,
                 website: data.website,
             })
-            .where(eq(organizations.id, jwtPayload.currentOrgId));
+            .where(eq(organizations.id, jwtPayload.currentOrgID));
 
         return c.json({ message: "Business Profile updated" }, 200);
     },

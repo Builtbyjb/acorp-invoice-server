@@ -24,10 +24,10 @@ export type ENV = {
 };
 
 export type BaseTokenPayload = {
-    userId: number;
+    userID: number;
     email: string;
     firstname: string;
-    currentOrgId: number;
+    currentOrgID: number;
     organizationName?: string;
     otp?: string;
 };

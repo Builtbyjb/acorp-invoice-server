@@ -1,6 +1,6 @@
 import type { Context } from "hono";
-import { ErrorResult, type TokenPayload } from "./types";
-import type { InvoiceNumber, InvoiceItem } from "../api/v1/invoice/types";
+import { ErrorResult, type TokenPayload } from "./types/shared-types";
+import type { InvoiceNumber, InvoiceItem } from "./types/invoice-types";
 import { getCookie } from "hono/cookie";
 import { verify, sign } from "hono/jwt";
 import { otpTemplate } from "@/templates/util";

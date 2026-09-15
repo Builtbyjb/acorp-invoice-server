@@ -12,8 +12,9 @@ import {
     createClientRecord,
     softDeleteClient,
     updateClientRecord,
-    searchClientsByName,
+    findClientsByName,
 } from "./service";
+import { FetchedClients } from "@/lib/types/client-types";
 
 const clientRouteV1 = new Hono<{
     Bindings: ENV;
@@ -32,12 +33,32 @@ clientRouteV1.get(
         const jwt = c.get("jwtPayload");
         const query = c.req.valid("query");
 
-        const result = await fetchClientsPage(db, jwt.currentOrgId, query.page, query.size);
+        let result: FetchedClients = {
+            data: [],
+            meta: {
+                totalCount: 0,
+                totalPages: 0,
+                currentPage: 0,
+                perPage: 0,
+            },
+        };
+
+        if (query.name) {
+            result = await findClientsByName(
+                db,
+                jwt.currentOrgID,
+                query.name,
+                query.page,
+                query.size,
+            );
+        } else {
+            result = await fetchClientsPage(db, jwt.currentOrgID, query.page, query.size);
+        }
 
         return c.json(
             {
                 message: "Clients fetched",
-                clients: result.data,
+                data: result.data,
                 meta: result.meta,
             },
             200,
@@ -71,7 +92,7 @@ clientRouteV1.get(
         return c.json(
             {
                 message: "Client invoices fetched",
-                invoices: result.data,
+                data: result.data,
                 meta: result.meta,
             },
             200,
@@ -89,9 +110,10 @@ clientRouteV1.post(
         const db = c.get("db");
         const jwt = c.get("jwtPayload");
 
-        const parsedClient = await createClientRecord(db, data, jwt.currentOrgId);
+        const result = await createClientRecord(db, data, jwt.currentOrgID);
+        if (!result) return c.json({ message: "Failed to create client" }, 400);
 
-        return c.json({ message: "Client created", client: parsedClient }, 200);
+        return c.json({ message: "Client created", data: result }, 200);
     },
 );
 
@@ -114,21 +136,12 @@ clientRouteV1.put(
         const data = c.req.valid("json");
         const id = c.req.param("id");
 
-        await updateClientRecord(db, id, data);
+        // TODO
+        const result = await updateClientRecord(db, id, data);
+        if (!result) return c.json({ message: "Error updating client" }, 400);
 
-        return c.json({ message: "Client data edited" }, 200);
+        return c.json({ message: "Client data edited", data: result }, 200);
     },
 );
-
-// TODO
-clientRouteV1.post("/search", async (c) => {
-    const db = c.get("db");
-    const data = await c.req.json();
-    const jwt = c.get("jwtPayload");
-
-    const result = await searchClientsByName(db, jwt.currentOrgId, data.query);
-
-    return c.json({ data: result }, 200);
-});
 
 export default clientRouteV1;

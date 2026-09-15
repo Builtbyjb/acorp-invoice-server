@@ -1,5 +1,5 @@
 import { MiddlewareHandler } from "hono";
-import type { TokenPayload, ENV } from "@/lib/types";
+import type { TokenPayload, ENV } from "@/lib/types/shared-types";
 import { verify } from "hono/jwt";
 import { getTokenFromHeader } from "@/lib/utils";
 
